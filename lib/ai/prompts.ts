@@ -36,7 +36,7 @@ export function recipeSystem(input: RecipePromptInput): string {
   const brand = input.brand;
   return [
     `You design short animated clips as JSON scene recipes. Clip type: ${input.type} (${TYPE_HINTS[input.type]}). Size: ${input.aspect}.`,
-    `Reply with JSON only, no code, in this shape:`,
+    `Reply with one valid JSON object only, no code, written compactly on one line with no spaces or line breaks, in this shape:`,
     `{"name":"short clip name","scenes":[{"id":"s1","durationMs":3000,"background":"#111114","layout":"center","layers":[LAYER]}]}`,
     `LAYER is one of:`,
     `text: {"id":"t1","name":"Title","type":"text","role":"title|body|caption|label","text":"...","font":"Geist","sizePx":96,"weight":700,"colour":"#FFFFFF","align":"center","lineHeight":1.15,"startMs":0,"endMs":3000,"box":BOX,"opacity":1,"in":MOTION,"out":MOTION}`,
@@ -51,7 +51,8 @@ export function recipeSystem(input: RecipePromptInput): string {
     `Layouts: ${LAYOUTS.join(', ')}.`,
     `Media ids you may use (never invent one):\n${assets}`,
     `Rules: use only the preset ids and layouts listed. Colours are "#RRGGBB" hex or "transparent", nothing else.`,
-    `Every id is unique. Layer times are ms from the scene start and end by the scene's durationMs.`,
+    `Fill in every LAYER, BOX and MOTION with real values. Leave out fields at their default: "opacity":1, "lineHeight":1.15, "align":"center", "font":"Geist".`,
+    `Use at most 8 scenes and 5 layers per scene. Every id is unique. Layer times are ms from the scene start and end by the scene's durationMs.`,
     `Keep text short and large, high contrast against the background, and inside the middle 80% of the canvas.`,
     `Give each text at least 1500 ms on screen. The whole clip is ${input.lengthMs ? `about ${Math.round(input.lengthMs / 1000)}` : '6 to 20'} seconds and at most ${MAX_CLIP_MS / 1000}.`,
     brand?.colours?.length ? `Brand colours: ${brand.colours.join(', ')}.` : '',
@@ -71,6 +72,9 @@ export function editSystem(): string {
     `The clip stays at most ${MAX_CLIP_MS / 1000} seconds. Change only what was asked, with as few ops as you can.`,
   ].join('\n');
 }
+
+/** Added to the request after a reply that was not valid JSON or was cut off. */
+export const SHORTER = 'Your last reply was not valid JSON or was cut off. Reply again with fewer scenes and layers, as compact JSON on one line.';
 
 /** The follow-up for one retry: the problems the validator found. */
 export function retryMessage(problems: string[]): string {

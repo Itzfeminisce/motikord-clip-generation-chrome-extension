@@ -59,6 +59,7 @@ process.exit(exitCode);
 function fakeGroq(list) {
   const byPrompt = new Map(list.map((p) => [p.prompt, p]));
   return async (_url, init) => {
+    if (!init?.body) return new Response('{"data":[]}', { status: 200 });
     const { messages } = JSON.parse(init.body);
     const system = messages[0].content;
     const p = byPrompt.get(messages[1].content);

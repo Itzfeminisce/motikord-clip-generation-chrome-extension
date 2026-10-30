@@ -16,11 +16,11 @@ export interface MediaResult {
 
 /** offline: no connection. key: the library refused the key. failed: anything else. */
 export class MediaSearchError extends Error {
-  constructor(readonly reason: 'offline' | 'key' | 'failed', message: string) { super(message); this.name = 'MediaSearchError'; }
+  constructor(readonly reason: 'offline' | 'key' | 'failed', message: string, readonly status?: number) { super(message); this.name = 'MediaSearchError'; }
 }
 
 const API = 'https://api.openverse.org/v1';
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 20; // anonymous Openverse requests answer 401 above 20
 
 interface OvItem {
   id: string; title?: string | null; creator?: string | null; url?: string | null; foreign_landing_url?: string | null;
@@ -67,7 +67,7 @@ export async function searchOpenverse(fetchFn: FetchLike, q: string, kind: 'imag
     }
     if (!res.ok) {
       if (out.length) break;
-      throw new MediaSearchError('failed', `Openverse answered ${res.status}.`);
+      throw new MediaSearchError('failed', res.status === 429 ? 'Openverse is throttling requests.' : `Openverse answered ${res.status}.`, res.status);
     }
     const body = (await res.json()) as { results?: OvItem[]; page_count?: number };
     const seen = new Set(out.map((r) => r.id));

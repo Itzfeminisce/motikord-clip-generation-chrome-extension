@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { fakeBrowser } from 'wxt/testing/fake-browser';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FetchLike } from '../llm';
 import type { Asset, Recipe } from '../types';
 import { validateRecipe } from '../recipe/validate';
@@ -10,6 +11,9 @@ import { compactRecipe, editRecipe } from './editRecipe';
 import { AiError } from './errors';
 import { editSystem, recipeSystem } from './prompts';
 import { fitToMax, normaliseColour, parseJsonReply, writeRecipe, type WriteInput } from './writeRecipe';
+
+// The model is chosen once per session; a cached id keeps these tests to their own requests.
+beforeEach(() => fakeBrowser.storage.session.set({ groqModel: 'openai/gpt-oss-120b' }));
 
 const KEY = 'gsk_test';
 const reply = (content: string) => new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
@@ -114,6 +118,21 @@ describe('writeRecipe', () => {
     expect(err).toMatchObject({ code: 'invalid-reply', state: 'making-failed' });
     expect(err.detail.problems.join(' ')).toContain('not in the assets list');
     expect(g.bodies).toHaveLength(2);
+  });
+
+  it('asks again, shorter, when Groq cannot write JSON even without JSON mode, then succeeds', async () => {
+    const jv = () => new Response(JSON.stringify({ error: { message: 'x', type: 'invalid_request_error', code: 'json_validate_failed' } }), { status: 400 });
+    const responses = [jv(), jv(), reply(draft())];
+    const bodies: { messages: { role: string; content: string }[]; max_tokens: number }[] = [];
+    const fetch: FetchLike = vi.fn(async (_u: string, init?: RequestInit) => { bodies.push(JSON.parse(String(init?.body))); return responses.shift()!; });
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const result = await writeRecipe(input, { ai: 'cloud', key: KEY, fetch });
+    spy.mockRestore();
+    expect(validateRecipe(result.recipe)).toEqual([]);
+    expect(bodies[2]!.messages.at(-1)!.content).toMatch(/fewer scenes/);
+    // Prompt plus output budget stays well under the free tier's 12,000 tokens a minute.
+    expect(bodies[0]!.max_tokens).toBeLessThanOrEqual(3000);
+    expect((JSON.stringify(bodies[0]!.messages).length / 3.5) + bodies[0]!.max_tokens).toBeLessThan(5000);
   });
 
   it('fitToMax keeps every layer at least 1 ms and every scene at least 1 ms', () => {

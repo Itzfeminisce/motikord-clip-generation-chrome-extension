@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fakeBrowser } from 'wxt/testing/fake-browser';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FetchLike } from './llm';
 import { closeDB, deleteClip, getClip, listClips, putClip } from './db';
 import { canMake, createRunner, draft, failureFor, makeClip, makeFromTemplate, promptFor, type RunnerDeps } from './makeClip';
@@ -8,6 +9,9 @@ import { DEFAULT_SETTINGS } from './settings';
 import { TEMPLATES } from './templates';
 import { validateRecipe } from './recipe/validate';
 import type { Asset, Clip, Settings } from './types';
+
+// The model is chosen once per session; a cached id keeps these tests to their own requests.
+beforeEach(() => fakeBrowser.storage.session.set({ groqModel: 'openai/gpt-oss-120b' }));
 
 const KEY = 'gsk_test';
 const settings: Settings = { ...DEFAULT_SETTINGS, keySource: 'paste', onboarded: true };
