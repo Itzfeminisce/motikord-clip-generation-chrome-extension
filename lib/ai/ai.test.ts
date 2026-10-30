@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { fakeBrowser } from 'wxt/testing/fake-browser';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FetchLike } from '../llm';
 import type { Asset, Recipe } from '../types';
 import { validateRecipe } from '../recipe/validate';
@@ -10,6 +11,9 @@ import { compactRecipe, editRecipe } from './editRecipe';
 import { AiError } from './errors';
 import { editSystem, recipeSystem } from './prompts';
 import { fitToMax, normaliseColour, parseJsonReply, writeRecipe, type WriteInput } from './writeRecipe';
+
+// The model is chosen once per session; a cached id keeps these tests to their own requests.
+beforeEach(() => fakeBrowser.storage.session.set({ groqModel: 'openai/gpt-oss-120b' }));
 
 const KEY = 'gsk_test';
 const reply = (content: string) => new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
