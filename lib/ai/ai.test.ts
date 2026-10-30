@@ -116,6 +116,21 @@ describe('writeRecipe', () => {
     expect(g.bodies).toHaveLength(2);
   });
 
+  it('asks again, shorter, when Groq cannot write JSON even without JSON mode, then succeeds', async () => {
+    const jv = () => new Response(JSON.stringify({ error: { message: 'x', type: 'invalid_request_error', code: 'json_validate_failed' } }), { status: 400 });
+    const responses = [jv(), jv(), reply(draft())];
+    const bodies: { messages: { role: string; content: string }[]; max_tokens: number }[] = [];
+    const fetch: FetchLike = vi.fn(async (_u: string, init?: RequestInit) => { bodies.push(JSON.parse(String(init?.body))); return responses.shift()!; });
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const result = await writeRecipe(input, { ai: 'cloud', key: KEY, fetch });
+    spy.mockRestore();
+    expect(validateRecipe(result.recipe)).toEqual([]);
+    expect(bodies[2]!.messages.at(-1)!.content).toMatch(/fewer scenes/);
+    // Prompt plus output budget stays well under the free tier's 12,000 tokens a minute.
+    expect(bodies[0]!.max_tokens).toBeLessThanOrEqual(3000);
+    expect((JSON.stringify(bodies[0]!.messages).length / 3.5) + bodies[0]!.max_tokens).toBeLessThan(5000);
+  });
+
   it('fitToMax keeps every layer at least 1 ms and every scene at least 1 ms', () => {
     const scenes = [
       { ...(JSON.parse(draft({ id: 's1', durationMs: 59990 }, [title({ startMs: 0, endMs: 59990 })])).scenes[0]) },

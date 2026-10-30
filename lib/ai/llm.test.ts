@@ -32,6 +32,60 @@ describe('chat with Groq', () => {
   });
 });
 
+const groqErr = (st: number, error: Record<string, string>, headers: Record<string, string> = {}) =>
+  new Response(JSON.stringify({ error }), { status: st, headers });
+/** Answers with each response in turn and records the request bodies. */
+function seq(...responses: Response[]) {
+  const bodies: Record<string, unknown>[] = [];
+  const fetch: FetchLike = vi.fn(async (_u: string, init?: RequestInit) => { bodies.push(JSON.parse(String(init?.body))); return responses.shift()!; });
+  return { fetch, bodies };
+}
+const okRes = (content: string, finish = 'stop') => new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: finish }] }), { status: 200 });
+
+describe('Groq error bodies', () => {
+  const m = [{ role: 'user' as const, content: 'JSON please' }];
+  const run = (fetch: FetchLike, maxTokens = 3000) => chat(m, { ai: 'cloud', key: KEY, fetch, json: true, maxTokens });
+
+  it('retries json_validate_failed once without JSON mode and returns that text', async () => {
+    const { fetch, bodies } = seq(groqErr(400, { message: 'Failed to generate JSON', type: 'invalid_request_error', code: 'json_validate_failed' }), okRes('Here: {"a":1}'));
+    expect((await run(fetch)).text).toBe('Here: {"a":1}');
+    expect(bodies[0]!.response_format).toEqual({ type: 'json_object' });
+    expect(bodies[1]!.response_format).toBeUndefined();
+  });
+
+  it('maps a second json_validate_failed, a cut-off reply and other 400s to bad-reply', async () => {
+    const jv = () => groqErr(400, { message: 'x', type: 'invalid_request_error', code: 'json_validate_failed' });
+    expect(await code(run(seq(jv(), jv()).fetch))).toBe('bad-reply');
+    expect(await code(run(seq(okRes('{"a":', 'length')).fetch))).toBe('bad-reply');
+    expect(await code(run(seq(groqErr(400, { message: 'bad field', type: 'invalid_request_error' })).fetch))).toBe('bad-reply');
+  });
+
+  it('shrinks max_tokens once on a request too large for the TPM limit, then says busy', async () => {
+    const big = () => groqErr(413, { message: 'Request too large for model on tokens per minute (TPM): Limit 12000', type: 'tokens', code: 'rate_limit_exceeded' });
+    const shrinkOk = seq(big(), okRes('{"a":1}'));
+    expect((await run(shrinkOk.fetch)).text).toBe('{"a":1}');
+    expect(shrinkOk.bodies.map((b) => b.max_tokens)).toEqual([3000, 1500]);
+    expect(await code(run(seq(big(), big()).fetch))).toBe('rate-limited');
+    const tpm = seq(groqErr(429, { message: 'Rate limit reached on tokens per minute (TPM)', type: 'tokens', code: 'rate_limit_exceeded' }), okRes('{}'));
+    expect((await run(tpm.fetch)).text).toBe('{}');
+    expect(tpm.bodies[1]!.max_tokens).toBe(1500);
+  });
+
+  it('keeps auth for 401/403 only, server for 5xx, and logs status and code but never the key or prompt', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await code(run(seq(groqErr(401, { message: 'Invalid API Key', type: 'invalid_request_error', code: 'invalid_api_key' })).fetch))).toBe('auth');
+    expect(await code(run(seq(groqErr(403, { message: 'denied', type: 'permissions_error' })).fetch))).toBe('auth');
+    expect(await code(run(seq(groqErr(500, { message: 'oops', type: 'internal_server_error' })).fetch))).toBe('server');
+    expect(await code(run(seq(new Response('<html>', { status: 502 })).fetch))).toBe('server');
+    expect(spy).toHaveBeenCalledWith('Motikord: could not reach Groq', 401, 'invalid_api_key');
+    expect(spy).toHaveBeenCalledWith('Motikord: could not reach Groq', 500, 'internal_server_error');
+    const logged = JSON.stringify(spy.mock.calls);
+    expect(logged).not.toContain(KEY);
+    expect(logged).not.toContain('JSON please');
+    spy.mockRestore();
+  });
+});
+
 describe('chat with built-in AI', () => {
   it('uses LanguageModel with earlier messages as initial prompts', async () => {
     const prompt = vi.fn(async () => '{"type":"logo"}');

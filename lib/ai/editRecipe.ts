@@ -1,5 +1,5 @@
 import type { Issue, PatchOp, Recipe } from '../types';
-import { chat, type ChatMessage } from '../llm';
+import { chat, LLMError, type ChatMessage } from '../llm';
 import { MAX_CLIP_MS, validateRecipe } from '../recipe/validate';
 import { check } from '../checker';
 import { applyPatch, PatchError } from '../patch';
@@ -59,6 +59,7 @@ export async function editRecipe(recipe: Recipe, request: string, opts: AiOption
     try {
       reply = await chat(messages, { ...opts, json: true, maxTokens: 2000 });
     } catch (e) {
+      if (e instanceof LLMError && e.code === 'bad-reply' && attempt === 0) { problems = ['The reply was not JSON.']; continue; }
       throw toAiError(e, 'edit');
     }
     const parsed = parseJsonReply(reply.text);

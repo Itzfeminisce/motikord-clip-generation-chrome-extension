@@ -1,13 +1,15 @@
 import type { Issue, Layer, Motion, PatchOp, PresetSlot, Recipe, Scene } from '../types';
-import { chat, type ChatMessage, type ChatOptions } from '../llm';
+import { chat, LLMError, type ChatMessage, type ChatOptions } from '../llm';
 import { MAX_CLIP_MS, validateRecipe } from '../recipe/validate';
 import { check } from '../checker';
 import { applyPatch } from '../patch';
 import { getPreset } from '../render/presets';
 import { AiError, toAiError, type AiStateId } from './errors';
-import { recipeSystem, retryMessage, type RecipePromptInput } from './prompts';
+import { recipeSystem, retryMessage, SHORTER, type RecipePromptInput } from './prompts';
 
 export type AiOptions = Omit<ChatOptions, 'json' | 'maxTokens'>;
+
+export const RECIPE_TOKENS = 3000;
 
 export interface WriteInput extends RecipePromptInput {
   prompt: string;
@@ -174,8 +176,14 @@ export async function writeRecipe(input: WriteInput, opts: AiOptions = {}): Prom
   for (let attempt = 0; attempt < 2; attempt++) {
     let reply;
     try {
-      reply = await chat(messages, { ...opts, json: true, maxTokens: 4000 });
+      // Fits the free tier: prompt + max_tokens per call, and both calls plus detect, stay under 12,000 tokens a minute.
+      reply = await chat(messages, { ...opts, json: true, maxTokens: RECIPE_TOKENS });
     } catch (e) {
+      if (e instanceof LLMError && e.code === 'bad-reply' && attempt === 0) {
+        problems = ['The reply was not JSON.'];
+        messages.push({ role: 'user', content: SHORTER });
+        continue;
+      }
       throw toAiError(e, 'make');
     }
     const parsed = parseJsonReply(reply.text);
@@ -192,7 +200,9 @@ export async function writeRecipe(input: WriteInput, opts: AiOptions = {}): Prom
       const fixed = applyCheckerFixes(recipe);
       return { recipe: fixed.recipe, by: reply.by, notices, checkerClean, issues: fixed.issues };
     }
-    messages.push({ role: 'assistant', content: reply.text }, { role: 'user', content: retryMessage(problems) });
+    // A reply that was not JSON is no use to fix; ask again instead of sending it back.
+    if (parsed === undefined) messages.push({ role: 'user', content: SHORTER });
+    else messages.push({ role: 'assistant', content: reply.text }, { role: 'user', content: retryMessage(problems) });
   }
   throw new AiError('invalid-reply', 'make', { problems });
 }
