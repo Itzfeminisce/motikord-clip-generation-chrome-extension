@@ -52,6 +52,15 @@ export function MediaOffline({ onUseMedia }: { onUseMedia?: () => void }) {
   );
 }
 
+export function SearchFailed({ library = 'Openverse', onRetry }: { library?: 'Openverse' | 'Pexels'; onRetry?: () => void }) {
+  return (
+    <Row role="status" glyph={<svg {...icon} stroke="var(--muted)"><circle cx="12" cy="12" r="9" /><path d="M12 7v6M12 16.5v.01" /></svg>}
+      title={`${library} didn't answer`} actions={btn('Try again', onRetry)}>
+      Results from the other library still show. Try again in a minute.
+    </Row>
+  );
+}
+
 export function PexelsNeedsKey({ onAddKey }: { onAddKey?: () => void }) {
   return (
     <Row glyph={<svg {...icon} stroke="var(--accent)"><circle cx="8" cy="14" r="4" /><path d="M11 11l9-9M17 5l2 2M15 7l2 2" /></svg>}
@@ -95,6 +104,8 @@ export default function StatesMedia() {
       <MediaSearching />
       <MediaNoResults query="sourdough croissant bagel" />
       <MediaOffline />
+      <SearchFailed />
+      <SearchFailed library="Pexels" />
       <PexelsNeedsKey />
       <LibraryDenied />
       <MediaDownloadFailed />
