@@ -12,7 +12,7 @@ import { searchPexels } from '../lib/media/pexels';
 import { PANEL_GOTO, send } from '../lib/messages';
 import { getKey, getSettings, onSettingsChanged } from '../lib/settings';
 import type { Recipe, Settings } from '../lib/types';
-import { AllLicencesOn, LibraryDenied, MediaDownloadFailed, MediaNoResults, MediaOffline, MediaSearching, PexelsNeedsKey } from './StatesMedia';
+import { AllLicencesOn, LibraryDenied, MediaDownloadFailed, MediaNoResults, MediaOffline, MediaSearching, PexelsNeedsKey, SearchFailed } from './StatesMedia';
 
 type Tab = MediaKind;
 const TABS: [Tab, string][] = [['image', 'Photos'], ['video', 'Videos'], ['audio', 'Music']];
@@ -105,6 +105,8 @@ export default function MediaSearch() {
   const [picked, setPicked] = useState<string>();
   const [adding, setAdding] = useState(false);
   const [failed, setFailed] = useState<MediaResult>();
+  const [searchFailed, setSearchFailed] = useState<('Openverse' | 'Pexels')[]>([]);
+  const lastRun = useRef<{ query: string; key: string | undefined; lic: boolean } | undefined>(undefined);
   const asked = useRef(false);
   // Every search and tab switch bumps the counter; a run that is no longer the latest sets nothing.
   const latest = useRef(0);
@@ -145,23 +147,35 @@ export default function MediaSearch() {
     setStatus('searching');
     setPicked(undefined);
     setNeedsKey(wantPx && !withKey);
+    setSearchFailed([]);
+    lastRun.current = { query, key: withKey, lic };
     const granted = await access;
     if (id !== latest.current) return;
     if (granted === 'denied') { setStatus('denied'); return; }
     const jobs: Promise<MediaResult[]>[] = [];
+    const libs: ('Openverse' | 'Pexels')[] = [];
+    if (wantOv) libs.push('Openverse');
+    if (wantPx && withKey) libs.push('Pexels');
     if (wantOv) jobs.push(searchOpenverse(doFetch, query, tab === 'audio' ? 'audio' : 'image', lic));
     if (wantPx && withKey) jobs.push(searchPexels(doFetch, withKey, query, tab === 'video' ? 'video' : 'image'));
     const settled = await Promise.allSettled(jobs);
     if (id !== latest.current) return;
     const lists = settled.flatMap((s) => (s.status === 'fulfilled' ? [s.value] : []));
     const errors = settled.flatMap((s) => (s.status === 'rejected' ? [s.reason as unknown] : []));
-    for (const e of errors) if (!(e instanceof MediaSearchError)) console.error('Motikord: could not search free media', e);
+    const broke: ('Openverse' | 'Pexels')[] = [];
+    settled.forEach((s, i) => {
+      if (s.status !== 'rejected') return;
+      const e = s.reason as unknown;
+      if (!(e instanceof MediaSearchError)) { console.error('Motikord: could not search free media', libs[i], undefined); broke.push(libs[i]!); return; }
+      if (e.reason === 'failed') { console.error('Motikord: could not search free media', libs[i], e.status); broke.push(libs[i]!); }
+    });
+    setSearchFailed(broke);
     if (errors.some((e) => e instanceof MediaSearchError && e.reason === 'key')) setNeedsKey(true);
     const merged: MediaResult[] = [];
     for (let i = 0; lists.some((l) => i < l.length); i++) for (const l of lists) if (l[i]) merged.push(l[i]!);
     setResults(merged);
     setSearched(query);
-    setStatus(merged.length === 0 && errors.length > 0 && !errors.every((e) => e instanceof MediaSearchError && e.reason === 'key') ? 'offline' : 'done');
+    setStatus(merged.length === 0 && errors.length > 0 && errors.every((e) => e instanceof MediaSearchError && e.reason === 'offline') ? 'offline' : 'done');
   }
 
   function submit(e: FormEvent) {
@@ -173,6 +187,11 @@ export default function MediaSearch() {
     // Called before any await so Chrome still sees the click.
     const access = origins.length ? requestHost(origins) : Promise.resolve('granted' as const);
     void run(access, query, withKey, allLicences);
+  }
+
+  function retry() {
+    const last = lastRun.current;
+    if (last) void run(Promise.resolve('granted'), last.query, last.key, last.lic);
   }
 
   function changeFree(on: boolean) {
@@ -226,7 +245,7 @@ export default function MediaSearch() {
   const switchTab = (t: Tab) => {
     latest.current++;
     inflight.current?.abort();
-    setTab(t); setResults([]); setStatus('idle'); setPicked(undefined); setFailed(undefined); setNeedsKey(false);
+    setTab(t); setResults([]); setStatus('idle'); setPicked(undefined); setFailed(undefined); setNeedsKey(false); setSearchFailed([]);
     if ((t === 'video' && source === 'openverse') || (t === 'audio' && source === 'pexels')) setSource('all');
   };
 
@@ -264,7 +283,8 @@ export default function MediaSearch() {
           {status === 'searching' && <MediaSearching />}
           {status === 'denied' && <LibraryDenied onAllow={() => navigate('AccessPrompt', route.params)} />}
           {status === 'offline' && <MediaOffline onUseMedia={() => navigate('YourMedia', route.params)} />}
-          {status === 'done' && shown.length === 0 && !(needsKey && source === 'pexels') && <MediaNoResults query={searched} onClear={() => { setQ(''); setResults([]); setStatus('idle'); }} />}
+          {status === 'done' && searchFailed.length > 0 && searchFailed.map((l) => <SearchFailed key={l} library={l} onRetry={retry} />)}
+          {status === 'done' && shown.length === 0 && searchFailed.length === 0 && !(needsKey && source === 'pexels') && <MediaNoResults query={searched} onClear={() => { setQ(''); setResults([]); setStatus('idle'); }} />}
           {failed && <MediaDownloadFailed what={failed.kind === 'image' ? 'photo' : failed.kind === 'video' ? 'video' : 'track'} onRetry={() => add(failed)} />}
           {status === 'done' && tab === 'audio' && shown.length > 0 && (
             <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column' }}>
