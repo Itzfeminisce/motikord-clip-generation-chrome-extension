@@ -12,10 +12,11 @@ export const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 export const GROQ_MODELS_URL = 'https://api.groq.com/openai/v1/models';
 /** Capable chat models with JSON mode, best first. Groq retires models, so the one used is picked from /models. */
 export const GROQ_MODEL_PREFERENCE = [
-  'openai/gpt-oss-120b',
+  // Models that answer without reasoning first, so the whole token budget goes to the recipe.
   'moonshotai/kimi-k2-instruct-0905',
   'meta-llama/llama-4-maverick-17b-128e-instruct',
   'llama-3.3-70b-versatile',
+  'openai/gpt-oss-120b',
   'openai/gpt-oss-20b',
   'llama-3.1-8b-instant',
 ];

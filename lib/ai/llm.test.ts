@@ -19,7 +19,7 @@ describe('chat with Groq', () => {
     expect(url).toBe(GROQ_URL);
     expect((init.headers as Record<string, string>).Authorization).toBe(`Bearer ${KEY}`);
     const body = JSON.parse(init.body);
-    expect(body.model).toBe(GROQ_MODEL_PREFERENCE[0]);
+    expect(body.model).toBe('openai/gpt-oss-120b'); // the cached choice
     expect(body.response_format).toEqual({ type: 'json_object' });
   });
 
