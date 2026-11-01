@@ -160,7 +160,7 @@ export default function Settings() {
       <Section title="Keys">
         <a href="#keys" onClick={(e) => { e.preventDefault(); navigate('PenvConnected'); }} style={{ ...rowStyle, ...first }}>
           <span className="mono" aria-hidden="true" style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--ink)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 12, flexShrink: 0 }}>pv</span>
-          <span style={{ flexGrow: 1 }}>{text('Penv Cloud', 'Groq and Pexels keys')}</span>
+          <span style={{ flexGrow: 1 }}>{text('Penv Cloud', `${PROVIDERS[s.provider].label} and Pexels keys`)}</span>
           {connected && <span style={{ fontSize: 13, color: 'var(--success-ink)', fontWeight: 500 }}>Connected</span>}
           {chevron}
         </a>

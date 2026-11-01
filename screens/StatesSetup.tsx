@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { PROVIDERS } from '../lib/providers';
+import { PROVIDERS, withArticle } from '../lib/providers';
 import type { Provider } from '../lib/types';
 
 type Tone = 'plain' | 'warning' | 'error';
@@ -50,7 +50,7 @@ const act = (text: string, onClick?: () => void, style: object = actionStyle) =>
 const label = (p: Provider) => PROVIDERS[p].label;
 
 export function NoBuiltInAi({ provider = 'groq', onUseGroq }: { provider?: Provider; onUseGroq?: () => void }) {
-  return <StateCard glyph="info" title="Chrome’s built-in AI isn’t on this computer" actions={act('Use Groq', onUseGroq)}>{`Motikord will use ${label(provider)} to write your clips. Editing, preview and export still run here.`}</StateCard>;
+  return <StateCard glyph="info" title="Chrome’s built-in AI isn’t on this computer" actions={act(`Use ${label(provider)}`, onUseGroq)}>{`Motikord will use ${label(provider)} to write your clips. Editing, preview and export still run here.`}</StateCard>;
 }
 export function SlowComputer() {
   return <StateCard tone="warning" glyph="warn" title="The preview may be slow on this computer">Motikord will show a lighter preview while you edit. Your exports are still full quality.</StateCard>;
@@ -91,7 +91,7 @@ export function KeyNotRecognised({ provider = 'groq' }: { provider?: Provider })
   const { label: n, prefix } = PROVIDERS[provider];
   return (
     <StateCard tone="error" role="alert" glyph="cross" title="Motikord doesn’t recognise this key" actions={getKey(provider)}>
-      {`It isn’t a ${n} or Pexels key. ${n} keys start with ${prefix}. Check you copied all of it.`}
+      {`It isn’t ${withArticle(n)} or Pexels key. ${n} keys start with ${prefix}. Check you copied all of it.`}
     </StateCard>
   );
 }
@@ -129,8 +129,8 @@ export function KeyChecking({ service }: { service: string }) {
 export function KeyWrongProvider({ provider = 'groq', detected = 'openai', onSwitch }: { provider?: Provider; detected?: Provider; onSwitch?: () => void }) {
   const d = label(detected);
   return (
-    <StateCard tone="error" role="alert" glyph="cross" title={`This looks like an ${d} key`} actions={[act(`Switch to ${d}`, onSwitch), getKey(provider)]}>
-      {`You chose ${label(provider)}, and its keys start with ${PROVIDERS[provider].prefix}. Paste a ${label(provider)} key, or switch provider to ${d}.`}
+    <StateCard tone="error" role="alert" glyph="cross" title={`This looks like ${withArticle(d)} key`} actions={[act(`Switch to ${d}`, onSwitch), getKey(provider)]}>
+      {`You chose ${label(provider)}, and its keys start with ${PROVIDERS[provider].prefix}. Paste ${withArticle(label(provider))} key, or switch provider to ${d}.`}
     </StateCard>
   );
 }
@@ -150,7 +150,7 @@ export function ModelListFailed({ provider = 'groq', model = 'llama-3.3-70b-vers
 }
 export function ModelNeedsKey({ provider = 'groq', model = 'llama-3.3-70b-versatile', onPaste, onPenv }: { provider?: Provider; model?: string; onPaste?: () => void; onPenv?: () => void }) {
   return (
-    <StateCard glyph="info" title={`Add a ${label(provider)} key to see its models`} actions={[act('Paste a key', onPaste), act('Use Penv Cloud', onPenv, secondaryStyle)]}>
+    <StateCard glyph="info" title={`Add ${withArticle(label(provider))} key to see its models`} actions={[act('Paste a key', onPaste), act('Use Penv Cloud', onPenv, secondaryStyle)]}>
       {`The list comes from ${label(provider)}, so it needs your key first. Until then Motikord uses ${model}.`}
     </StateCard>
   );

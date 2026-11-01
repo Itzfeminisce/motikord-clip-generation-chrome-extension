@@ -14,12 +14,15 @@ export interface ProviderInfo {
 
 export const PROVIDERS: Record<Provider, ProviderInfo> = {
   groq: { id: 'groq', label: 'Groq', settingsLabel: 'Groq (free tier)', prefix: 'gsk_', keyName: 'GROQ_API_KEY', host: 'api.groq.com', keysUrl: 'https://console.groq.com/keys', getKey: 'Get a free Groq key' },
-  openai: { id: 'openai', label: 'OpenAI', settingsLabel: 'OpenAI', prefix: 'sk-', keyName: 'OPENAI_API_KEY', host: 'api.openai.com', keysUrl: 'https://platform.openai.com/api-keys', getKey: 'Get a OpenAI key' },
-  anthropic: { id: 'anthropic', label: 'Anthropic', settingsLabel: 'Anthropic', prefix: 'sk-ant-', keyName: 'ANTHROPIC_API_KEY', host: 'api.anthropic.com', keysUrl: 'https://console.anthropic.com/settings/keys', getKey: 'Get a Anthropic key' },
-  openrouter: { id: 'openrouter', label: 'OpenRouter', settingsLabel: 'OpenRouter (many models)', prefix: 'sk-or-', keyName: 'OPENROUTER_API_KEY', host: 'openrouter.ai', keysUrl: 'https://openrouter.ai/keys', getKey: 'Get a OpenRouter key' },
+  openai: { id: 'openai', label: 'OpenAI', settingsLabel: 'OpenAI', prefix: 'sk-', keyName: 'OPENAI_API_KEY', host: 'api.openai.com', keysUrl: 'https://platform.openai.com/api-keys', getKey: 'Get an OpenAI key' },
+  anthropic: { id: 'anthropic', label: 'Anthropic', settingsLabel: 'Anthropic', prefix: 'sk-ant-', keyName: 'ANTHROPIC_API_KEY', host: 'api.anthropic.com', keysUrl: 'https://console.anthropic.com/settings/keys', getKey: 'Get an Anthropic key' },
+  openrouter: { id: 'openrouter', label: 'OpenRouter', settingsLabel: 'OpenRouter (many models)', prefix: 'sk-or-', keyName: 'OPENROUTER_API_KEY', host: 'openrouter.ai', keysUrl: 'https://openrouter.ai/keys', getKey: 'Get an OpenRouter key' },
 };
 
 /** Settings and Setup order; Groq is the default. */
+/** "a Groq key", "an OpenAI key". */
+export const withArticle = (name: string) => `${/^[AEIOU]/i.test(name) ? 'an' : 'a'} ${name}`;
+
 export const PROVIDER_IDS: Provider[] = ['groq', 'openai', 'anthropic', 'openrouter'];
 export const DEFAULT_PROVIDER: Provider = 'groq';
 

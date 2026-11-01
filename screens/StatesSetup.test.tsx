@@ -24,7 +24,7 @@ describe('StatesSetup', () => {
     expect(r(<ProviderAccess provider="anthropic" />)).toContain('sent to api.anthropic.com.');
     expect(r(<PenvNoUsableKeys provider="openrouter" />)).toContain('Add OPENROUTER_API_KEY in Penv Cloud');
     expect(r(<KeyRejected provider="openai" />)).toContain('OpenAI didn’t accept this key');
-    expect(r(<KeyRejected provider="openai" />)).toContain('Get a OpenAI key');
+    expect(r(<KeyRejected provider="openai" />)).toContain('Get an OpenAI key');
     expect(r(<KeyWrongProvider provider="anthropic" detected="groq" />)).toContain('its keys start with sk-ant-.');
   });
   it('has the six privacy rows', () => {
