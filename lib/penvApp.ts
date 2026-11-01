@@ -12,7 +12,8 @@ export const PENV_APP_TOKEN_URL = `${PENV_BASE_URL}/auth/app/token`;
 export const PENV_APP_URL = `${PENV_BASE_URL}/auth/app`;
 export const PENV_REVOKE_URL = `${PENV_BASE_URL}/auth/revoke`;
 /** Optional keys Motikord asks for on top of the ones the chosen setup needs. */
-export const PENV_APP_OPTIONAL_KEYS = ['GROQ_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'PEXELS_API_KEY'];
+export const PENV_APP_OPTIONAL_KEYS = ['GROQ_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'PEXELS_API_KEY',
+  'PIXABAY_API_KEY', 'FREESOUND_API_KEY', 'JAMENDO_CLIENT_ID', 'UNSPLASH_ACCESS_KEY'];
 
 export const GRANT_KEY = 'penvGrant';
 export const DISCONNECTED_KEY = 'penvAppDisconnected';

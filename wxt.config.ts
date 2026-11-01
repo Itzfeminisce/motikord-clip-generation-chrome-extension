@@ -52,6 +52,18 @@ export default defineConfig({
       'https://*.archive.org/*',
       'https://lh3.googleusercontent.com/*',
       'https://player.vimeo.com/*',
+      // Media sources: the built-in search APIs and the hosts their files come from.
+      'https://commons.wikimedia.org/*',
+      'https://images-api.nasa.gov/*',
+      'https://images-assets.nasa.gov/*',
+      'https://collectionapi.metmuseum.org/*',
+      'https://api.artic.edu/*',
+      'https://www.artic.edu/*',
+      'https://pixabay.com/*',
+      'https://cdn.pixabay.com/*',
+      'https://freesound.org/*',
+      'https://api.unsplash.com/*',
+      'https://images.unsplash.com/*',
       // The side panel gets no activeTab, so Grab asks for the page you are on (one site at a time, never all sites at once).
       'https://*/*',
       'http://*/*',

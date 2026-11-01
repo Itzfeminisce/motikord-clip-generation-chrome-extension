@@ -4,6 +4,7 @@ import { useRouter } from '../entrypoints/sidepanel/router';
 import { getBrandKit } from '../lib/db';
 import { chooseFolder } from '../lib/folder';
 import { loadKeys } from '../lib/keys';
+import { sourcesSummary } from '../lib/media/sources/summary';
 import { getSettings, onSettingsChanged, updateSettings, type SettingsPatch } from '../lib/settings';
 import type { BrandKit, FileKind, Provider, Quality, Settings as SettingsData } from '../lib/types';
 import { CODE_URL } from './Privacy';
@@ -95,6 +96,7 @@ export default function Settings() {
   }, []);
 
   if (!s) return null;
+  const sources = sourcesSummary(s.media, { pexels: keys.PEXELS_API_KEY, pixabay: keys.PIXABAY_API_KEY, freesound: keys.FREESOUND_API_KEY, jamendo: keys.JAMENDO_CLIENT_ID, unsplash: keys.UNSPLASH_ACCESS_KEY });
   const set = (patch: SettingsPatch) => { updateSettings(patch).catch((error: unknown) => console.error('Motikord: could not save settings', error)); };
   const change = async () => {
     try { await chooseFolder(); } catch (error) { console.error('Motikord: could not choose the save folder', error); }
@@ -178,10 +180,11 @@ export default function Settings() {
         <Switch label="Keep the preview smooth" hint="Shows a lighter preview when needed. Exports are always full quality." checked={s.smoothPreview} onChange={(v) => set({ smoothPreview: v })} />
       </Section>
 
-      <Section title="Free media libraries">
-        <Switch top label="Openverse" hint="Photos and music. No key needed." checked={s.libraries.openverse} onChange={(v) => set({ libraries: { openverse: v } })} />
-        <Switch label="Pexels" hint="Photos and videos. Key from Penv Cloud." checked={s.libraries.pexels} onChange={(v) => set({ libraries: { pexels: v } })} />
-        <Switch label="Show all licences" hint="Also shows share-alike and non-commercial media. Check the licence before you use it." checked={s.libraries.allLicences} onChange={(v) => set({ libraries: { allLicences: v } })} />
+      <Section title="Free media">
+        <a href="#media-sources" onClick={(e) => { e.preventDefault(); navigate('MediaSources'); }} style={{ ...rowStyle, ...first }}>
+          {text('Media sources', sources.line)}
+          <span style={{ fontSize: 12, color: 'var(--muted)', flexShrink: 0 }}>{`${sources.on} on`}</span>
+        </a>
       </Section>
 
       <Section>

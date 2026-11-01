@@ -11,8 +11,8 @@ Nothing leaves your computer unless you switch it on. There is no account, no an
 | Prompts and recipe text | Your computer | Sent only to the one AI provider you chose (Groq by default; or OpenAI, Anthropic or OpenRouter) when you prompt: your prompt and the clip's text, never your media. Not sent if Chrome's built-in AI is used. |
 | Your voice | Nowhere. No recording is kept | Heard only while the mic is lit, after you press Speak. Turned into text on this computer by Chrome's on-device speech recognition when Chrome can (never Chrome's cloud speech service); otherwise sent to Groq or OpenAI, with your key, only to become text, and only when that is the provider you chose. The text goes into the prompt box and is sent only when you press Make clip or send. |
 | Page grabs | Your computer | The text of a grab goes to the AI only as part of a prompt you send. The page is read only after you press "Grab from this page" and allow access. |
-| Media and music searches | Your computer | Your search words go to the library you search (Openverse or Pexels). Picked files are downloaded once from their source and kept here. |
-| Keys | `chrome.storage.session`, cleared when Chrome closes | Groq, OpenAI, Anthropic, OpenRouter and Pexels keys, fetched from Penv Cloud after "Connect Penv Cloud", or pasted. Each key goes only to its own service. Never printed, logged or committed. |
+| Media and music searches | Your computer | Your search words go to every media source that is on (Media sources in Settings: Openverse, Wikimedia Commons and NASA by default; Museums, ccMixter, Pexels, Pixabay, Freesound, Jamendo, Unsplash or your own links if you turn them on). Picked files are downloaded once from their source and kept here. |
+| Keys | `chrome.storage.session`, cleared when Chrome closes | Groq, OpenAI, Anthropic, OpenRouter, Pexels, Pixabay, Freesound, Jamendo and Unsplash keys, and keys for your own media sources, fetched from Penv Cloud after "Connect Penv Cloud", or pasted. Each key goes only to its own service. Never printed, logged or committed. |
 
 Each service you turn on handles what it receives under its own privacy policy. Motikord does not sell or share your data with anyone else.
 
@@ -30,7 +30,15 @@ Chrome asks for these only when you first use the feature. Nothing is requested 
 - `api.openverse.org`: searches Openverse photos and music. It receives your search words.
 - `api.pexels.com`, `images.pexels.com`, `videos.pexels.com`: searches Pexels and downloads the photo or video you pick. Needs your Pexels key.
 - Source sites of Openverse files, used only to download a file you pick: `*.staticflickr.com`, `upload.wikimedia.org`, `cdn.freesound.org`, `*.jamendo.com`, `ccmixter.org`, `images.metmuseum.org`, `images.rawpixel.com`, `cdn.stocksnap.io`, `files.freemusicarchive.org`, `archive.org` and `*.archive.org`, `lh3.googleusercontent.com`, `player.vimeo.com`.
+- Media sources, each asked the first time you search it: `commons.wikimedia.org` and `upload.wikimedia.org` (Wikimedia Commons), `images-api.nasa.gov` and `images-assets.nasa.gov` (NASA Image Library), `collectionapi.metmuseum.org`, `images.metmuseum.org`, `api.artic.edu` and `www.artic.edu` (Museums), `ccmixter.org`, `pixabay.com` and `cdn.pixabay.com`, `freesound.org` and `cdn.freesound.org`, `*.jamendo.com`, `api.unsplash.com` and `images.unsplash.com`. Each receives your search words, and the key you gave it if it needs one.
+- Your own media sources: when you add one, Chrome asks for that site. It receives your search words and, if you gave one, the key, sent the way you chose.
 - `https://*/*` and `http://*/*`: "Grab from this page" asks for the site you are on. When Chrome does not tell Motikord which site that is, it asks for all sites once, so the picker can run on any page. Nothing is read from a page until you press the button.
+
+## Media source terms
+- Unsplash: when you add an Unsplash photo, Motikord tells Unsplash it was used (its download link, as Unsplash's API terms ask) and credits the photographer in credits.txt with a link back to Unsplash.
+- Pixabay: files are downloaded once and kept on your computer, never hotlinked, as Pixabay's API terms ask.
+- Jamendo and Freesound: each track keeps its Creative Commons licence; non-commercial ones show only when "Only free to use in videos" is off.
+- Sources that state no licence (your own links, NASA): each item says "Check you may use it" and credits.txt lists it as From the source, with its link. Motikord never claims a licence a source did not give.
 
 ## What Motikord does not do
 - No tracking, analytics, advertising or crash reporting.
