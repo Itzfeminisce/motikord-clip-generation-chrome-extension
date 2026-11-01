@@ -28,7 +28,7 @@ async function inject(): Promise<{ tabId?: number; blocked?: boolean }> {
     return { tabId: tab.id };
   } catch (error) {
     console.warn('Motikord: could not start picking on this page', error);
-    return {};
+    return { blocked: true };
   }
 }
 
