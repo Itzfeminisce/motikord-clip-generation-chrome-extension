@@ -21,14 +21,23 @@ const scene = (ms = 4000) => ({
   layers: [{ id: 't1', name: 'Title', type: 'text', role: 'title', text: 'Fresh sourdough', font: 'Geist', sizePx: 96, weight: 700, colour: '#FFFFFF', align: 'center', lineHeight: 1.1, startMs: 0, endMs: ms, box: { x: 0.1, y: 0.4, w: 0.8, h: 0.2 }, opacity: 1 }],
 });
 const recipeJson = (ms = 4000) => JSON.stringify({ name: 'Sourdough', scenes: [scene(ms)] });
+// The creative plan and the design critique are lib/ai's own steps (tested in lib/ai); here they answer outside the count.
+const PLAN = JSON.stringify({ name: 'Sourdough', scenes: [{ headline: 'Fresh sourdough' }] });
+const own = (init?: RequestInit) => {
+  const messages = (JSON.parse(String(init?.body ?? '{}')).messages ?? []) as { content: string }[];
+  if (messages[0]?.content.startsWith('You plan')) return ok(PLAN);
+  if (messages.at(-1)?.content.includes('cut into frames')) return ok('{}');
+  return undefined;
+};
 /** A fake Groq: first the type, then the recipe (or whatever `replies` holds). */
 const groq = (...replies: (string | Response | Error)[]) => {
-  const fetch: FetchLike = vi.fn(async () => {
+  const counted: FetchLike = vi.fn(async () => {
     const next = replies.shift();
     if (next instanceof Error) throw next;
     return typeof next === 'string' ? ok(next) : (next ?? ok('{}'));
   });
-  return { fetch, hooks: { ai: 'cloud' as const, key: KEY, fetch, settings } };
+  const fetch: FetchLike = async (u, init) => own(init) ?? counted(u, init);
+  return { fetch: counted, hooks: { ai: 'cloud' as const, key: KEY, fetch, settings } };
 };
 const photo: Asset = { id: 'p1', kind: 'image', name: 'loaf.jpg', mime: 'image/jpeg', bytes: 5, opfsPath: 'media/p1.jpg' };
 const extra: Asset = { id: 'p2', kind: 'image', name: 'other.jpg', mime: 'image/jpeg', bytes: 5, opfsPath: 'media/p2.jpg' };
