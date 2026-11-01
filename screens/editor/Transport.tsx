@@ -5,7 +5,7 @@ import { useEditor } from './Editor';
 import { PlayIcon } from './StatesEditor';
 
 export function Transport() {
-  const { state, playhead, play, setTime } = useEditor();
+  const { state, playhead, play } = useEditor();
   const total = clipDuration(state.clip.recipe);
   const label = useRef<HTMLSpanElement>(null);
 
@@ -21,10 +21,7 @@ export function Transport() {
     return () => cancelAnimationFrame(raf);
   }, [state.playing, playhead, total]);
 
-  const toggle = () => {
-    if (!state.playing && state.timeMs >= total - 1) setTime(0);
-    play(!state.playing);
-  };
+  const toggle = () => play(!state.playing);
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
