@@ -4,7 +4,7 @@
  */
 import type { AiMode, Provider } from './types';
 import { DEFAULT_SETTINGS, getKey, getSettings } from './settings';
-import { PROVIDERS } from './providers';
+import { PROVIDER_IDS, PROVIDERS, SUGGESTED_MODELS } from './providers';
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 export interface ChatMessage { role: 'system' | 'user' | 'assistant'; content: string }
@@ -30,12 +30,7 @@ export const GROQ_MODEL_PREFERENCE = [
   'llama-3.1-8b-instant',
 ];
 /** Used when the provider's list can't be read; a wrong guess is re-picked from the list on model_not_found. */
-export const FALLBACK_MODEL: Record<Provider, string> = {
-  groq: GROQ_MODEL_PREFERENCE[0]!,
-  openai: 'gpt-4.1',
-  anthropic: 'claude-sonnet-4-5',
-  openrouter: 'anthropic/claude-sonnet-4.5',
-};
+export const FALLBACK_MODEL = Object.fromEntries(PROVIDER_IDS.map((p) => [p, SUGGESTED_MODELS[p].models[0]!])) as Record<Provider, string>;
 // Listed models that can't write a clip: speech, images, embeddings, moderation and agent systems.
 const NOT_CHAT = /embed|whisper|tts|transcri|speech|audio|realtime|image|dall-e|moderation|guard|orpheus|compound|search|computer-use|davinci|babbage|turbo-instruct|sora|playai/i;
 // OpenAI models that only answer on the Responses API.
@@ -64,7 +59,8 @@ export interface ChatOptions {
   languageModel?: LanguageModelLike;
 }
 
-export type LLMErrorCode = 'no-key' | 'offline' | 'auth' | 'rate-limited' | 'server' | 'bad-reply' | 'local-unavailable' | 'cancelled';
+export type LLMErrorCode = 'no-key' | 'offline' | 'auth' | 'rate-limited' | 'server' | 'bad-reply' | 'local-unavailable' | 'cancelled'
+  | 'model-not-found' | 'not-for-text' | 'no-list';
 
 export class LLMError extends Error {
   constructor(message: string, readonly code: LLMErrorCode, readonly retryAfterMs?: number) {
@@ -142,7 +138,13 @@ export function pickGroqModel(data: unknown): string {
 
 export interface ModelList { models: string[]; recommended: string }
 
-/** Asks the provider for its models: recommended first, then the rest. Throws LLMError (offline, auth, server, cancelled). */
+/** True when a model id names something that can't write a clip (speech, images, embeddings…). */
+export const notForText = (model: string) => NOT_CHAT.test(model);
+
+// A key that works for chat but may not list models: OpenAI restricted and project keys without the "Models: Read" scope.
+const missingScope = (e: ApiError) => (e.status === 401 || e.status === 403) && /scope|insufficient permissions|not allowed to|permission/i.test(e.message ?? '');
+
+/** Asks the provider for its models: recommended first, then the rest. Throws LLMError (offline, auth, no-list, server, cancelled). */
 export async function listModels(provider: Provider, key: string, fetchFn: FetchLike = (u, i) => fetch(u, i), signal?: AbortSignal): Promise<ModelList> {
   const label = PROVIDERS[provider].label;
   let res: Response;
@@ -153,6 +155,8 @@ export async function listModels(provider: Provider, key: string, fetchFn: Fetch
     throw new LLMError(`Could not reach ${label}.`, 'offline');
   }
   if (!res.ok) {
+    const err = await readError(res);
+    if (missingScope(err)) throw new LLMError(`${label} doesn't let this key list models.`, 'no-list');
     if (res.status === 401 || res.status === 403) throw new LLMError(`${label} did not accept the key.`, 'auth');
     throw new LLMError(`${label} returned ${res.status}.`, 'server');
   }
@@ -183,7 +187,7 @@ async function recommendedFor(provider: Provider, key: string, fetchFn: FetchLik
     id = (await listModels(provider, key, fetchFn, signal)).recommended;
   } catch (e) {
     if (e instanceof LLMError && e.code === 'cancelled') throw e;
-    if (e instanceof LLMError && e.code !== 'offline') console.error(`Motikord: could not list ${PROVIDERS[provider].label} models`, e.message);
+    if (e instanceof LLMError && e.code !== 'offline' && e.code !== 'no-list') console.error(`Motikord: could not list ${PROVIDERS[provider].label} models`, e.message);
     return FALLBACK_MODEL[provider];
   }
   await store?.set({ [k]: id }).catch(() => undefined);
@@ -209,6 +213,7 @@ const MIN_TOKENS = 800;
 const modelGone = (e: ApiError) =>
   e.code === 'model_not_found' || e.code === 'model_decommissioned' || (e.status === 404 && (e.type === 'not_found_error' || /model/i.test(e.message ?? '')))
   || (e.status === 400 && /model\b.*(does not exist|not found|decommissioned|not a valid model|invalid model)/i.test(e.message ?? ''));
+const notChat = (e: ApiError) => /not a chat model|not supported in the v1\/chat|does not support chat/i.test(e.message ?? '');
 const DROPPABLE = ['temperature', 'reasoning_effort', 'response_format'];
 /** The request field a 400 says the model doesn't take, if Motikord can leave it out. */
 function unsupportedParam(e: ApiError): string | undefined {
@@ -302,7 +307,9 @@ async function chatCloud(provider: Provider, messages: ChatMessage[], opts: Chat
       if (opts.signal?.aborted) throw cancelled();
       console.error(`Motikord: could not reach ${label}`, err.status, err.code ?? err.type ?? '');
       if (err.status === 401 || err.status === 403) throw new LLMError(`${label} did not accept the key.`, 'auth');
-      // The model is gone (retired, or the person's pick was removed): use the recommended one from a fresh list, once.
+      if (notChat(err)) throw new LLMError(`${r.model} can't write text.`, 'not-for-text');
+      // The person's model is not there: say so, so they can change it. With no pick, the recommended one is re-picked once.
+      if (modelGone(err) && chosen) throw new LLMError(`${label} has no model ${r.model}.`, 'model-not-found');
       if (modelGone(err)) {
         if (!repicked) { repicked = true; r.model = await recommendedFor(provider, key, fetchFn, opts.signal, true); continue; }
         throw new LLMError(`${label} has no model Motikord can use.`, 'server');
@@ -337,6 +344,14 @@ async function chatCloud(provider: Provider, messages: ChatMessage[], opts: Chat
     }
     return opts.json && provider === 'anthropic' ? extractJson(reply.text) : reply.text;
   }
+}
+
+/** "Check model": one tiny request to `model` with `key`. Resolves the time it took in ms; throws LLMError. */
+export async function checkModel(provider: Provider, model: string, key: string, fetchFn?: FetchLike, now: () => number = () => performance.now()): Promise<number> {
+  if (notForText(model)) throw new LLMError(`${model} can't write text.`, 'not-for-text');
+  const start = now();
+  await chat([{ role: 'user', content: 'Reply with OK.' }], { ai: 'cloud', provider, model, key, maxTokens: 16, temperature: 0, fetch: fetchFn });
+  return now() - start;
 }
 
 async function chatLocal(messages: ChatMessage[], opts: ChatOptions): Promise<string> {

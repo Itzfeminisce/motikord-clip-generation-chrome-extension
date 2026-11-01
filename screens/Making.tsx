@@ -1,12 +1,10 @@
 import { useEffect, type ReactNode } from 'react';
 import { useRouter } from '../entrypoints/sidepanel/router';
 import { Spinner } from '../components/ui';
-import { HOSTS, requestHost } from '../lib/hostAccess';
 import { MAX_BUSY_RETRIES, draft, runner, useRun, useSettings } from '../lib/makeClip';
 import type { ClipType } from '../lib/types';
 import { send } from '../lib/messages';
-import { AiFooter, KeyNeeded, ProviderBusy, ProviderBusyRetried, ProviderDown, MakingFailed, Offline, TooLong } from './StatesCreate';
-import { PenvDisconnected, ProviderAccess } from './StatesSetup';
+import { AiFooter, ProviderBusy, TooLong } from './StatesCreate';
 import { RecipeThumb, TYPE_NAMES } from './Templates';
 
 const check = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success-ink)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>;
@@ -60,8 +58,6 @@ export default function Making() {
   }, [autoRetry, waitMs]);
 
   const again = () => { void runner.start(draft.get(), { access: 'granted' }); };
-  // Chrome only asks inside the click, so the request goes out before anything is awaited.
-  const allow = () => { const access = requestHost(HOSTS[provider]); void access.then((a) => runner.start(draft.get(), { access: a })); };
   const cancel = () => { void runner.cancel().then(() => replace('Home')); };
   const openNow = () => { if (run.clipId) void send({ type: 'editor/open', clipId: run.clipId }); else void runner.openNow(draft.get()); };
 
@@ -70,15 +66,12 @@ export default function Making() {
   const scenes = run.recipe?.scenes.length;
   const failed = run.status === 'failed' ? run.failure : undefined;
 
+  // Every failure except a busy provider being waited out shows the whole MakingFailed screen.
+  const failedForGood = !!failed && !autoRetry;
+  useEffect(() => { if (failedForGood) replace('MakingFailed'); }, [failedForGood, replace]);
+
   let card: ReactNode = null;
-  if (failed === 'making-failed') card = <MakingFailed onTryAgain={again} onTemplates={() => navigate('Templates')} />;
-  else if (failed === 'provider-busy' && !autoRetry) card = <ProviderBusyRetried provider={provider} onTryNow={again} />;
-  else if (failed === 'provider-busy') card = <ProviderBusy provider={provider} seconds={Math.ceil((waitMs ?? 20_000) / 1000)} onTryNow={again} />;
-  else if (failed === 'provider-down') card = <ProviderDown provider={provider} onOpenSettings={() => navigate('Settings')} />;
-  else if (failed === 'key-needed') card = <KeyNeeded onPasteKey={() => navigate('PasteKey')} />;
-  else if (failed === 'offline') card = <Offline />;
-  else if (failed === 'penv-disconnected') card = <PenvDisconnected onConnect={() => navigate('PenvConnect')} />;
-  else if (failed === 'provider-access') card = <ProviderAccess provider={provider} onAllow={allow} />;
+  if (failed === 'provider-busy' && autoRetry) card = <ProviderBusy provider={provider} seconds={Math.ceil((waitMs ?? 20_000) / 1000)} onTryNow={again} />;
   else if (run.notices.includes('too-long')) card = <TooLong />;
 
   return (

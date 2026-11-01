@@ -134,28 +134,6 @@ export function KeyWrongProvider({ provider = 'groq', detected = 'openai', onSwi
     </StateCard>
   );
 }
-export function ModelListLoading({ provider = 'groq', model = 'llama-3.3-70b-versatile' }: { provider?: Provider; model?: string }) {
-  return (
-    <StateCard role="status" glyph="spin" title={`Loading ${label(provider)}’s models…`}>
-      {`The Model list is greyed out for a moment. Your current choice, ${model}, stays selected.`}
-    </StateCard>
-  );
-}
-export function ModelListFailed({ provider = 'groq', model = 'llama-3.3-70b-versatile', onTryAgain }: { provider?: Provider; model?: string; onTryAgain?: () => void }) {
-  return (
-    <StateCard tone="warning" role="status" glyph="warn" title={`Couldn’t load ${label(provider)}’s models`} actions={act('Try again', onTryAgain, secondaryStyle)}>
-      {`Your current choice, ${model}, still works for clips. Check your connection, then ask again.`}
-    </StateCard>
-  );
-}
-export function ModelNeedsKey({ provider = 'groq', model = 'llama-3.3-70b-versatile', onPaste, onPenv }: { provider?: Provider; model?: string; onPaste?: () => void; onPenv?: () => void }) {
-  return (
-    <StateCard glyph="info" title={`Add ${withArticle(label(provider))} key to see its models`} actions={[act('Paste a key', onPaste), act('Use Penv Cloud', onPenv, secondaryStyle)]}>
-      {`The list comes from ${label(provider)}, so it needs your key first. Until then Motikord uses ${model}.`}
-    </StateCard>
-  );
-}
-
 const SHEET: [string, ReactNode][] = [
   ['no-built-in-ai · Setup, Settings', <NoBuiltInAi />],
   ['slow-computer · Setup', <SlowComputer />],
@@ -168,9 +146,6 @@ const SHEET: [string, ReactNode][] = [
   ['key-rejected · Paste a key', <KeyRejected />],
   ['pexels-key-rejected · Paste a key', <PexelsKeyRejected />],
   ['key-check-unreachable · PasteKey', <KeyCheckUnreachable />],
-  ['model-list-loading · Settings (Model)', <ModelListLoading />],
-  ['model-list-failed · Settings (Model)', <ModelListFailed />],
-  ['model-needs-key · Settings (Model)', <ModelNeedsKey />],
   ['key-wrong-provider · Paste a key', <KeyWrongProvider />],
   ['key-checking · Paste a key', <KeyChecking service="Groq" />],
 ];

@@ -12,9 +12,6 @@ describe('StatesSetup', () => {
       'Motikord doesn’t recognise this key', 'Groq didn’t accept this key', 'This is a Groq key · Checking…', 'pexels-key-rejected · Paste a key', 'Pexels didn’t accept this key', 'Media search still works with Openverse. Make a new Pexels key and paste it here.',
       'provider-access · first “Make clip” (Chrome asks once)', 'Chrome asks once. Only your prompt and the clip’s text are sent to api.groq.com.',
       'Add GROQ_API_KEY in Penv Cloud and choose it for Motikord, or paste one here.', 'It isn’t a Groq or Pexels key. Groq keys start with gsk_. Check you copied all of it.',
-      'model-list-loading · Settings (Model)', 'Loading Groq’s models…', 'The Model list is greyed out for a moment. Your current choice, llama-3.3-70b-versatile, stays selected.',
-      'model-list-failed · Settings (Model)', 'Couldn’t load Groq’s models', 'Your current choice, llama-3.3-70b-versatile, still works for clips. Check your connection, then ask again.',
-      'model-needs-key · Settings (Model)', 'Add a Groq key to see its models', 'The list comes from Groq, so it needs your key first. Until then Motikord uses llama-3.3-70b-versatile.', 'Use Penv Cloud',
       'key-wrong-provider · Paste a key', 'This looks like an OpenAI key', 'You chose Groq, and its keys start with gsk_. Paste a Groq key, or switch provider to OpenAI.', 'Switch to OpenAI', 'Get a free Groq key',
       'key-check-unreachable · PasteKey', 'Motikord can’t check your key right now', 'Your key is kept until Chrome closes, and Motikord will check it again as soon as it’s back.',
     ]) expect(html).toContain(text.replace(/’/g, '’'));
