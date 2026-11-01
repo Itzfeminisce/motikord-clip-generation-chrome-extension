@@ -131,7 +131,7 @@ export function PromptBox() {
 
   const card = (() => {
     if (voice.ui.kind === 'card') {
-      return <VoiceStateCard card={voice.ui.card} provider={voice.provider}
+      return <VoiceStateCard card={voice.ui.card} provider={voice.ui.provider ?? voice.provider}
         actions={{ onAllow: voice.allowMic, onTypeInstead: voice.dismiss, onOpenSettings: voice.openChromeSettings, onTryAgain: voice.tryAgain }} />;
     }
     switch (ui.kind) {
@@ -152,7 +152,7 @@ export function PromptBox() {
       {card && <div style={{ position: 'absolute', left: 0, right: 0, bottom: 'calc(100% + 8px)', zIndex: 7 }}>{card}</div>}
       {ui.kind === 'working'
         ? <PromptWorking onStop={() => stop.current?.abort()} />
-        : voice.ui.kind === 'listening' || voice.ui.kind === 'transcribing'
+        : voice.ui.kind === 'listening'
           ? <EditorListening settled={voice.ui.kind === 'listening' ? voice.ui.settled : ''} interim={voice.ui.kind === 'listening' ? voice.ui.interim : ''} onDone={voice.done} />
           : (
           <form onSubmit={(e) => { e.preventDefault(); send(text); }}
@@ -161,17 +161,17 @@ export function PromptBox() {
             <input ref={input} aria-label="Tell Motikord what to change" placeholder="Tell Motikord what to change" value={text}
               onChange={(e) => { setText(e.target.value); if (ui.kind !== 'idle' && ui.kind !== 'offline') setUi({ kind: 'idle' }); }}
               style={{ flexGrow: 1, minWidth: 0, border: 0, outline: 'none', font: '14px/1 var(--font)', color: 'var(--ink)', background: 'transparent' }} />
-            <button type="button" aria-label="Speak" title="Speak your change" onClick={speak}
+            {voice.enabled && <button type="button" aria-label="Speak" title="Speak your change" onClick={speak}
               style={{ width: 34, height: 34, border: 0, borderRadius: 10, background: 'transparent', color: 'var(--muted)', display: 'grid', placeItems: 'center', cursor: 'pointer', flexShrink: 0 }}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{MIC_PATHS}</svg>
-            </button>
+            </button>}
             <button type="submit" aria-label="Send" disabled={!text.trim()}
               style={{ width: 34, height: 34, border: 0, borderRadius: 10, background: 'var(--accent)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer', opacity: text.trim() ? 1 : 0.6 }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" /></svg>
             </button>
           </form>
         )}
-      {voice.ui.kind !== 'listening' && voice.ui.kind !== 'transcribing' && <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+      {voice.ui.kind !== 'listening' && <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
         {CHIPS.map((c) => (
           <button key={c} type="button" disabled={ui.kind === 'working'} onClick={() => { setText(c); send(c); }}
             style={{ height: 26, padding: '0 10px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line-strong)', color: 'var(--ink)', font: '12px/1 var(--font)', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>{c}</button>

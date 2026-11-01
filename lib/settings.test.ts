@@ -16,7 +16,15 @@ describe('settings', () => {
       smoothPreview: true,
       libraries: { openverse: true, pexels: true, allLicences: false },
       onboarded: false,
+      voiceOn: true,
+      voiceLang: '',
     });
+  });
+
+  it('migrates settings from before voice prompts to mic on, Chrome language', () => {
+    expect(mergeSettings({ onboarded: true } as never)).toMatchObject({ voiceOn: true, voiceLang: '' });
+    expect(mergeSettings({ voiceOn: false, voiceLang: 'fr-FR' })).toMatchObject({ voiceOn: false, voiceLang: 'fr-FR' });
+    expect(mergeSettings({ voiceOn: 'no', voiceLang: '<x>' } as never)).toMatchObject({ voiceOn: true, voiceLang: '' });
   });
 
   it('gives settings from before providers Groq and no model pick', () => {

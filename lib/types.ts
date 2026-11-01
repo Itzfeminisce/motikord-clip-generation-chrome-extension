@@ -79,6 +79,8 @@ export interface Settings {
   penvApp?: { connectionId: string; org: string; project: string; env: string; keys: string[] };
   defaultType?: ClipType;                                   // "Always use this type": skips detection
   defaultAspect: Aspect; defaultExport: { kind: FileKind; quality: Quality };
+  voiceOn: boolean;                                          // "Speak your prompt": off hides the mic buttons
+  voiceLang: string;                                         // BCP-47 for voice prompts; '' = Chrome's language
   smoothPreview: boolean;                                    // "Keep the preview smooth": drops preview resolution
   libraries: { openverse: boolean; pexels: boolean; allLicences: boolean };
   folderName?: string;                                       // handle itself kept in IndexedDB

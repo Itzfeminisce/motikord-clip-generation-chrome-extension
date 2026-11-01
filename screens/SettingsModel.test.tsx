@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { stateFor } from '../lib/ai/errors';
 import { reasonFor } from './MakingFailed';
 import { penvKeysLine } from './Settings';
-import SettingsModel, { listOnOpen, ModelOptions, seconds } from './SettingsModel';
+import SettingsModel, { checkProblemFor, listOnOpen, modelCheckProblemLine, ModelOptions, seconds } from './SettingsModel';
 
 describe('SettingsModel', () => {
   const html = renderToStaticMarkup(<SettingsModel />).replace(/&quot;/g, '"');
@@ -69,5 +69,21 @@ describe('MakingFailed', () => {
   it('maps a missing model to model-not-found', () => {
     expect(stateFor('model-not-found', 'make')).toBe('model-not-found');
     expect(stateFor('not-for-text', 'make')).toBe('model-not-for-text');
+  });
+});
+
+describe('Check model results', () => {
+  it('maps each failure to its frame result', () => {
+    expect(checkProblemFor('auth')).toBe('key-refused');
+    expect(checkProblemFor('offline')).toBe('offline');
+    expect(checkProblemFor('rate-limited')).toBe('busy');
+    expect(checkProblemFor('server')).toBe('server-error');
+    expect(checkProblemFor('bad-reply')).toBe('server-error');
+  });
+  it('uses the frame lines', () => {
+    expect(modelCheckProblemLine('key-refused', 'openai', 'gpt-4.1')).toBe('OpenAI refused the key. Check it in Paste a key.');
+    expect(modelCheckProblemLine('offline', 'openai', 'gpt-4.1')).toBe('Couldn’t reach OpenAI. Check your connection, then check gpt-4.1 again.');
+    expect(modelCheckProblemLine('busy', 'openai', 'gpt-4.1')).toBe('OpenAI is busy. Try gpt-4.1 again in a moment.');
+    expect(modelCheckProblemLine('server-error', 'openai', 'gpt-4.1')).toBe('OpenAI had a problem on its side. Try gpt-4.1 again soon.');
   });
 });
