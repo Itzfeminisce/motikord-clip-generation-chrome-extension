@@ -1,3 +1,5 @@
+> Moved to https://github.com/Itzfeminisce/appskord/tree/main/apps/motikord. This repository is archived.
+
 # Motikord
 
 Motikord is a Chrome side-panel extension that turns a prompt, a page or your own media into a short animated clip (5 to 60 seconds), made and rendered on your computer.
