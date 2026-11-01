@@ -10,6 +10,8 @@ export const DEFAULT_SETTINGS: Settings = {
   models: {},
   defaultAspect: '9:16',
   defaultExport: { kind: 'mp4', quality: '1080p' },
+  voiceOn: true,
+  voiceLang: '',
   smoothPreview: true,
   libraries: { openverse: true, pexels: true, allLicences: false },
   onboarded: false,
@@ -18,13 +20,15 @@ export const DEFAULT_SETTINGS: Settings = {
 type Nested = 'defaultExport' | 'libraries' | 'models';
 export type SettingsPatch = Omit<Partial<Settings>, Nested> & { [K in Nested]?: Partial<Settings[K]> };
 
-/** Fills every missing field from the defaults, including inside `defaultExport` and `libraries`. Settings from before providers get Groq. */
+/** Fills every missing field from the defaults, including inside `defaultExport` and `libraries`. Settings from before providers get Groq; from before voice prompts get the mic on in Chrome's language. */
 export function mergeSettings(stored: SettingsPatch | undefined): Settings {
   const s = stored ?? {};
   return {
     ...DEFAULT_SETTINGS,
     ...s,
     provider: isProvider(s.provider) ? s.provider : DEFAULT_PROVIDER,
+    voiceOn: typeof s.voiceOn === 'boolean' ? s.voiceOn : true,
+    voiceLang: typeof s.voiceLang === 'string' && /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(s.voiceLang) ? s.voiceLang : '',
     models: cleanModels(s.models),
     defaultExport: { ...DEFAULT_SETTINGS.defaultExport, ...s.defaultExport },
     libraries: { ...DEFAULT_SETTINGS.libraries, ...s.libraries },

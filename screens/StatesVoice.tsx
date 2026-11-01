@@ -77,6 +77,25 @@ export function VoiceGettingReady({ language = languageName() }: { language?: st
     </Notice>
   );
 }
+/** voice-transcribing: after Done, while the provider turns the recording into text. */
+export function VoiceTranscribing() {
+  return (
+    <div role="status" data-state="voice" style={{ padding: '12px 14px', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--line)', display: 'flex', gap: 12, alignItems: 'center' }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#BE185D" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true" style={{ flexShrink: 0, animation: 'spin 0.8s linear infinite' }}><path d="M12 3a9 9 0 1 0 9 9" /></svg>
+      <span style={{ fontSize: 13, color: 'var(--ink)' }}>Turning your words into text…</span>
+    </div>
+  );
+}
+/** voice-transcribe-failed: the typed text stays; Try again sends the same recording again. */
+export function VoiceTranscribeFailed({ provider = 'groq', onTryAgain, onTypeInstead }: VoiceCardActions & { provider?: Provider }) {
+  const name = PROVIDERS[provider].label;
+  return (
+    <Notice tone="warning" role="alert" icon="warn" title={`${name} couldn’t turn your voice into text`}
+      actions={[<button key="a" type="button" onClick={onTryAgain} style={{ ...actionStyle, background: 'var(--ink)' }}>Try again</button>, <button key="b" type="button" onClick={onTypeInstead} style={secondary}>Type instead</button>]}>
+      {`Your key may have been refused, or ${name} is busy or down. Anything you typed is still there.`}
+    </Notice>
+  );
+}
 export function VoiceUnavailable({ provider = 'groq' }: { provider?: Provider }) {
   return (
     <Notice icon="info" title="Voice typing isn’t available here">
@@ -88,6 +107,8 @@ export function VoiceUnavailable({ provider = 'groq' }: { provider?: Provider })
 /** The card for a voice state, wired to the hook's actions. */
 export function VoiceStateCard({ card, provider, actions }: { card: VoiceCard; provider: Provider; actions: VoiceCardActions }) {
   switch (card) {
+    case 'voice-transcribing': return <VoiceTranscribing />;
+    case 'voice-transcribe-failed': return <VoiceTranscribeFailed provider={provider} {...actions} />;
     case 'voice-mic-access': return <VoiceMicAccess {...actions} />;
     case 'voice-mic-blocked': return <VoiceMicBlocked {...actions} />;
     case 'voice-no-mic': return <VoiceNoMic {...actions} />;
@@ -160,6 +181,8 @@ const SHEET: [string, ReactNode][] = [
   ['voice-not-heard · Make a clip, Editor', <VoiceNotHeard />],
   ['voice-getting-ready · Make a clip, Editor (first use of a language)', <VoiceGettingReady />],
   ['voice-unavailable · Make a clip, Editor', <VoiceUnavailable />],
+  ['voice-transcribing · Make a clip, Editor (after Done, cloud speech to text)', <VoiceTranscribing />],
+  ['voice-transcribe-failed · Make a clip, Editor (key refused, busy or down)', <VoiceTranscribeFailed provider="openai" />],
   ['voice-editor · Editor prompt box while listening', <EditorListening settled="Make the title" interim="bigger and slower" />],
   ['voice-footer · while listening (one line per way speech becomes text)', lines([
     <span key="a"><strong style={{ color: 'var(--ink)', fontWeight: 600 }}>On this computer:</strong> {voiceFooterLine({ kind: 'local', download: false })}</span>,

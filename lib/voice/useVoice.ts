@@ -4,37 +4,44 @@ import { getKey, getSettings, onSettingsChanged } from '../settings';
 import type { Provider, Settings } from '../types';
 import { chromeSiteSettingsUrl, joinResults, LEVEL_BARS, MIC_CHANNEL, micProblem, nextStep, SOUND_LEVEL, type MicMessage } from './listen';
 import { createLocalRecognition, installLocal, localAvailability, type Recognition } from './local';
-import { chooseVoicePath, type LocalAvailability, type VoicePath } from './path';
+import { chooseVoicePath, type LocalAvailability, type SpeechProvider, type VoicePath } from './path';
 import { transcribe, VoiceError } from './transcribe';
 
-export type VoiceCard = 'voice-mic-access' | 'voice-mic-blocked' | 'voice-no-mic' | 'voice-not-heard' | 'voice-getting-ready' | 'voice-unavailable';
+export type VoiceCard = 'voice-transcribing' | 'voice-transcribe-failed' | 'voice-mic-access' | 'voice-mic-blocked' | 'voice-no-mic' | 'voice-not-heard' | 'voice-getting-ready' | 'voice-unavailable';
 export type VoiceUi =
   | { kind: 'idle' }
-  | { kind: 'card'; card: VoiceCard }
-  | { kind: 'listening'; settled: string; interim: string; ms: number; levels: number[] }
-  | { kind: 'transcribing' };
+  | { kind: 'card'; card: VoiceCard; provider?: Provider }
+  | { kind: 'listening'; settled: string; interim: string; ms: number; levels: number[] };
 
 
 const QUIET = Array.from({ length: LEVEL_BARS }, () => 0);
 type MicState = PermissionState | 'unknown';
 
-/** Chrome's language, used for both on-device and provider speech-to-text. */
-export const voiceLanguage = () => globalThis.navigator?.language || 'en-US';
+/** Chrome's language, the default when Settings "Language" has not been chosen. */
+export const voiceLanguage = (chosen?: string) => chosen || globalThis.navigator?.language || 'en-US';
 /** "{language}": the language's own display name, e.g. "English (United States)". */
 export function languageName(lang = voiceLanguage()): string {
   try { return new Intl.DisplayNames([lang], { type: 'language' }).of(lang) ?? lang; } catch { return lang; }
 }
 
+/** Settings "Language" choices, code and name; the current one is always listed. */
+export const VOICE_LANGUAGES = ['en-US', 'en-GB', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR', 'it-IT', 'nl-NL', 'ja-JP', 'ko-KR', 'hi-IN', 'ar-SA'];
+export function voiceLanguageOptions(current: string): [string, string][] {
+  const codes = VOICE_LANGUAGES.includes(current) ? VOICE_LANGUAGES : [current, ...VOICE_LANGUAGES];
+  return codes.map((c) => [c, c === 'en-US' ? 'English (US)' : languageName(c)]);
+}
+
 /** The path the footer and Settings line describe; recomputed when settings, keys or Chrome's answer change. */
-export function useVoicePath(): { path: VoicePath; provider: Provider } {
+export function useVoicePath(): { path: VoicePath; provider: Provider; enabled: boolean; lang: string } {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [hasKey, setHasKey] = useState(false);
   const [local, setLocal] = useState<LocalAvailability>('unavailable');
   useEffect(() => {
     void getSettings().then(setSettings).catch(() => undefined);
-    void localAvailability(voiceLanguage()).then(setLocal);
     return onSettingsChanged(setSettings);
   }, []);
+  const lang = voiceLanguage(settings?.voiceLang);
+  useEffect(() => { void localAvailability(lang).then(setLocal); }, [lang]);
   const provider = settings?.provider ?? 'groq';
   useEffect(() => {
     const check = () => { void getKey(provider).then((k) => setHasKey(!!k)).catch(() => setHasKey(false)); };
@@ -43,14 +50,16 @@ export function useVoicePath(): { path: VoicePath; provider: Provider } {
     browser.storage.onChanged.addListener(onChange);
     return () => browser.storage.onChanged.removeListener(onChange);
   }, [provider]);
-  return { path: chooseVoicePath({ local, ai: settings?.ai ?? 'cloud', provider, hasKey }), provider };
+  return { path: chooseVoicePath({ local, ai: settings?.ai ?? 'cloud', provider, hasKey }), provider, enabled: settings?.voiceOn ?? true, lang };
 }
 
 interface Session { stop: (finish: boolean) => void }
 
 /** One voice prompt at a time. `onWords` gets the heard text once the person is done; nothing is ever sent as a prompt from here. */
 export function useVoice(onWords: (words: string) => void) {
-  const { path, provider } = useVoicePath();
+  const { path, provider, enabled, lang: chosenLang } = useVoicePath();
+  const langRef = useRef(chosenLang);
+  langRef.current = chosenLang;
   const [ui, setUiState] = useState<VoiceUi>({ kind: 'idle' });
   const uiRef = useRef<VoiceUi>(ui);
   const setUi = useCallback((next: VoiceUi) => { uiRef.current = next; setUiState(next); }, []);
@@ -61,6 +70,34 @@ export function useVoice(onWords: (words: string) => void) {
   pathRef.current = path;
   const words = useRef(onWords);
   words.current = onWords;
+
+  /** The recording of the last cloud prompt, held in memory only so "Try again" can send it again. */
+  const held = useRef<{ blob: Blob; lang: string; provider: SpeechProvider } | undefined>(undefined);
+  const sending = useRef<AbortController | undefined>(undefined);
+  const sendHeld = useCallback(() => {
+    const audio = held.current;
+    if (!audio) return;
+    const ac = new AbortController();
+    sending.current = ac;
+    setUi({ kind: 'card', card: 'voice-transcribing', provider: audio.provider });
+    void (async () => {
+      try {
+        if ((await access.current) === 'denied') throw new VoiceError('failed');
+        const key = await getKey(audio.provider);
+        if (!key) throw new VoiceError('key');
+        const said = await transcribe(audio.provider, key, audio.blob, { lang: audio.lang, signal: ac.signal });
+        if (ac.signal.aborted) return;
+        held.current = undefined;
+        if (said) { setUi({ kind: 'idle' }); words.current(said); } else setUi({ kind: 'card', card: 'voice-not-heard' });
+      } catch (error) {
+        if (ac.signal.aborted) return;
+        const code = error instanceof VoiceError ? error.code : 'failed';
+        if (code !== 'cancelled') console.error('Motikord: could not turn speech into text', code);
+        setUi({ kind: 'card', card: 'voice-transcribe-failed', provider: audio.provider });
+      }
+    })();
+  }, [setUi]);
+  const drop = useCallback(() => { sending.current?.abort(); held.current = undefined; }, []);
 
   const starting = useRef(false);
   const listen = useCallback(async () => {
@@ -77,7 +114,7 @@ export function useVoice(onWords: (words: string) => void) {
     } finally {
       starting.current = false;
     }
-    const lang = voiceLanguage();
+    const lang = langRef.current;
     const audio = new AudioContext();
     const analyser = audio.createAnalyser();
     analyser.fftSize = 512;
@@ -138,24 +175,10 @@ export function useVoice(onWords: (words: string) => void) {
       recorder.onstop = () => {
         if (closed) return;
         if (!heard) { end({ kind: 'card', card: 'voice-not-heard' }); return; }
-        const blob = new Blob(chunks, { type });
+        held.current = { blob: new Blob(chunks, { type }), lang, provider: p.provider };
         chunks.length = 0;
-        clearInterval(tick);
-        setUi({ kind: 'transcribing' });
-        void (async () => {
-          try {
-            if ((await access.current) === 'denied') throw new VoiceError('failed');
-            const key = await getKey(p.provider);
-            if (!key) throw new VoiceError('key');
-            const said = await transcribe(p.provider, key, blob, { lang, signal: ac.signal });
-            if (closed) return;
-            if (said) { end({ kind: 'idle' }); words.current(said); } else end({ kind: 'card', card: 'voice-not-heard' });
-          } catch (error) {
-            const code = error instanceof VoiceError ? error.code : 'failed';
-            if (code !== 'cancelled') console.error('Motikord: could not turn speech into text', code);
-            end({ kind: 'idle' });
-          }
-        })();
+        end({ kind: 'idle' });
+        sendHeld();
       };
       recorder.start(250);
     }
@@ -188,7 +211,7 @@ export function useVoice(onWords: (words: string) => void) {
       },
     };
     draw();
-  }, [setUi]);
+  }, [setUi, sendHeld]);
 
   // Mic permission, known before any click so the first tap can show voice-mic-access straight away.
   useEffect(() => {
@@ -205,7 +228,7 @@ export function useVoice(onWords: (words: string) => void) {
     void navigator.permissions?.query({ name: 'microphone' as PermissionName }).then((s) => { status = s; mic.current = s.state; s.onchange = onChange; }).catch(() => undefined);
     const channel = new BroadcastChannel(MIC_CHANNEL);
     channel.onmessage = (e: MessageEvent<MicMessage>) => answered(e.data.granted ? 'granted' : 'denied');
-    return () => { if (status) status.onchange = null; channel.close(); session.current?.stop(false); };
+    return () => { if (status) status.onchange = null; channel.close(); session.current?.stop(false); sending.current?.abort(); };
   }, [listen, setUi]);
 
   /** Call from the click: host access and the language download are asked before anything is awaited. */
@@ -218,7 +241,7 @@ export function useVoice(onWords: (words: string) => void) {
     if (mic.current === 'denied') { setUi({ kind: 'card', card: 'voice-mic-blocked' }); return; }
     if (p.kind === 'local' && p.download) {
       setUi({ kind: 'card', card: 'voice-getting-ready' });
-      void installLocal(voiceLanguage()).then((ok) => {
+      void installLocal(langRef.current).then((ok) => {
         if (ok) { pathRef.current = { kind: 'local', download: false }; void listen(); } else setUi({ kind: 'card', card: 'voice-unavailable' });
       });
       return;
@@ -227,17 +250,22 @@ export function useVoice(onWords: (words: string) => void) {
   }, [listen, setUi]);
 
   return {
-    ui, path, provider,
+    ui, path, provider, enabled,
     start,
     /** "Done": stop listening and put the words in the box. */
     done: () => session.current?.stop(true),
     /** "Cancel": drop what was heard, keep what was typed. */
-    cancel: () => { session.current?.stop(false); setUi({ kind: 'idle' }); },
+    cancel: () => { session.current?.stop(false); drop(); setUi({ kind: 'idle' }); },
     /** "Type instead" and dismissing a card. */
-    dismiss: () => setUi({ kind: 'idle' }),
+    dismiss: () => { drop(); setUi({ kind: 'idle' }); },
     /** "Allow microphone": a small Motikord tab shows Chrome's prompt, then closes itself. */
     allowMic: () => { void browser.tabs.create({ url: browser.runtime.getURL('/mic.html'), active: true }); },
     openChromeSettings: () => { void browser.tabs.create({ url: chromeSiteSettingsUrl(browser.runtime.id) }); },
-    tryAgain: () => { setUi({ kind: 'idle' }); start(); },
+    /** On voice-transcribe-failed it sends the same recording again; on the other cards it listens again. */
+    tryAgain: () => {
+      const u = uiRef.current;
+      if (u.kind === 'card' && u.card === 'voice-transcribe-failed' && held.current) { sendHeld(); return; }
+      setUi({ kind: 'idle' }); start();
+    },
   };
 }

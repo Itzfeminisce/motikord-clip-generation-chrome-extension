@@ -74,7 +74,7 @@ export default function Home({ preview }: { preview?: { settled: string; interim
   };
   const listening = preview
     ? { kind: 'listening' as const, levels: Array.from({ length: LEVEL_BARS }, (_, i) => [0.1, 0.3, 0.8, 0.5, 1, 0.3, 0.7, 0.2, 0.6, 0.9, 0.4, 0.1, 0.3, 0.6, 0.2][i] ?? 0.3), ...preview }
-    : voice.ui.kind === 'listening' || voice.ui.kind === 'transcribing' ? voice.ui : undefined;
+    : voice.ui.kind === 'listening' ? voice.ui : undefined;
 
   useEffect(() => {
     listClips().then((all) => setRecent(all.slice(0, 3))).catch((error: unknown) => console.error('Motikord: could not list your clips', error));
@@ -131,7 +131,7 @@ export default function Home({ preview }: { preview?: { settled: string; interim
       {disconnected && <div style={{ margin: '12px 16px 0' }}><PenvDisconnected onConnect={() => navigate('PenvConnect')} /></div>}
       {voice.ui.kind === 'card' && (
         <div style={{ margin: '12px 16px 0' }}>
-          <VoiceStateCard card={voice.ui.card} provider={voice.provider}
+          <VoiceStateCard card={voice.ui.card} provider={voice.ui.provider ?? voice.provider}
             actions={{ onAllow: voice.allowMic, onTypeInstead: voice.dismiss, onOpenSettings: voice.openChromeSettings, onTryAgain: voice.tryAgain }} />
         </div>
       )}
@@ -140,7 +140,7 @@ export default function Home({ preview }: { preview?: { settled: string; interim
         <HomeListening before={(preview ? '' : d.prompt).slice(0, cursor.current)} after={(preview ? '' : d.prompt).slice(cursor.current)}
           settled={listening.kind === 'listening' ? listening.settled : ''} interim={listening.kind === 'listening' ? listening.interim : ''}
           ms={listening.kind === 'listening' ? listening.ms : 0} levels={listening.kind === 'listening' ? listening.levels : Array.from({ length: LEVEL_BARS }, () => 0)}
-          transcribing={listening.kind === 'transcribing'} onDone={voice.done} onCancel={voice.cancel} />
+          onDone={voice.done} onCancel={voice.cancel} />
       ) : (
       <div style={{ margin: '14px 16px 0', padding: 14, borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -148,10 +148,10 @@ export default function Home({ preview }: { preview?: { settled: string; interim
           <div style={{ position: 'relative' }}>
             <textarea ref={promptBox} aria-label="Describe your clip" rows={4} value={d.prompt} placeholder={PROMPT_PLACEHOLDER} onChange={(e) => draft.set({ prompt: e.target.value })}
               style={{ resize: 'none', border: '1px solid #E0E0E4', borderRadius: 12, padding: '10px 12px 44px', width: '100%', boxSizing: 'border-box', font: '14px/1.45 var(--font)', color: 'var(--ink)', outline: 'none', display: 'block' }} />
-            <button type="button" aria-label="Speak your prompt" title="Speak your prompt" onClick={(e) => { e.preventDefault(); speak(); }}
+            {voice.enabled && <button type="button" aria-label="Speak your prompt" title="Speak your prompt" onClick={(e) => { e.preventDefault(); speak(); }}
               style={{ position: 'absolute', right: 8, bottom: 8, height: 32, padding: '0 12px 0 10px', border: 0, borderRadius: 999, background: '#FDF2F8', color: 'var(--accent-hover)', font: '600 12px/1 var(--font)', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{MIC_PATHS}</svg>Speak
-            </button>
+            </button>}
           </div>
         </label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>

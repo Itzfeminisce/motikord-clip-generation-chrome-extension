@@ -10,6 +10,8 @@ import { CODE_URL } from './Privacy';
 import { BackButton, probeMachine } from './Setup';
 import { ModelBuiltIn, ModelField } from './SettingsModel';
 import { NoBuiltInAi } from './StatesSetup';
+import { voiceSettingsLine } from './StatesVoice';
+import { voiceLanguage, voiceLanguageOptions, useVoicePath } from '../lib/voice/useVoice';
 
 const KINDS: [FileKind, string][] = [['mp4', 'MP4'], ['webm', 'WebM'], ['webm-alpha', 'See-through WebM'], ['gif', 'GIF']];
 const QUALITIES: Quality[] = ['1080p', '720p'];
@@ -79,6 +81,7 @@ export function penvKeysLine(provider: Provider, keys: Record<string, string>): 
 export default function Settings() {
   const { back, navigate } = useRouter();
   const [s, setS] = useState<SettingsData | null>(null);
+  const voicePath = useVoicePath();
   const [kit, setKit] = useState<BrandKit | undefined>();
   const [keys, setKeys] = useState<Record<string, string>>({});
   const [builtInAi, setBuiltInAi] = useState<boolean | null>(null);
@@ -134,6 +137,20 @@ export default function Settings() {
           {chevron}
         </a>
         <a href="#paste" onClick={(e) => { e.preventDefault(); navigate('PasteKey'); }} style={{ ...rowStyle, color: 'var(--accent)', fontSize: 13, fontWeight: 500 }}>Paste a key instead</a>
+      </Section>
+
+      <Section title="Voice prompts">
+        <Switch top label="Speak your prompt" hint="Shows the mic in the prompt box. Motikord only listens while the mic is lit." checked={s.voiceOn} onChange={(v) => set({ voiceOn: v })} />
+        <label style={rowStyle}>
+          {text('Language')}
+          <select value={voiceLanguage(s.voiceLang)} onChange={(e) => set({ voiceLang: e.target.value })} style={selectStyle}>
+            {voiceLanguageOptions(voiceLanguage(s.voiceLang)).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+          </select>
+        </label>
+        <div style={{ ...rowStyle, cursor: 'default' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#15803D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+          {text(voiceSettingsLine(voicePath.path, voicePath.provider))}
+        </div>
       </Section>
 
       <Section title="Clips">

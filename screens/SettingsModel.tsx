@@ -3,8 +3,7 @@ import { HOSTS, requestHost } from '../lib/hostAccess';
 import { checkModel, FALLBACK_MODEL, listModels, LLMError, type LLMErrorCode } from '../lib/llm';
 import { PROVIDERS, SUGGESTED_MODELS, withArticle } from '../lib/providers';
 import type { Provider } from '../lib/types';
-import { Offline, ProviderBusyRetried } from './StatesCreate';
-import { KeyCheckUnreachable, KeyRejected, ProviderAccess } from './StatesSetup';
+import { ProviderAccess } from './StatesSetup';
 
 const label = (p: Provider) => PROVIDERS[p].label;
 const s: CSSProperties = { fontSize: 12, color: 'var(--muted)', lineHeight: 1.45 };
@@ -49,6 +48,25 @@ export function ModelCheckOk({ model, ms, onCheck }: { model: string; ms: number
   return (
     <Note bg="var(--success-bg)" center role="status"><Tick /><span style={{ ...s, flexGrow: 1, color: 'var(--ink)' }}>{`${model} answered in ${seconds(ms)} s. Ready for clips.`}</span>
       {onCheck && <button type="button" onClick={onCheck} style={btn2}>Check model</button>}</Note>
+  );
+}
+/** model-check-key-refused / -offline / -busy / -server-error: one line, warning unless the key itself was refused. */
+export type CheckProblem = 'key-refused' | 'offline' | 'busy' | 'server-error';
+export const checkProblemFor = (code: LLMErrorCode): CheckProblem =>
+  code === 'auth' ? 'key-refused' : code === 'offline' ? 'offline' : code === 'rate-limited' ? 'busy' : 'server-error';
+export function modelCheckProblemLine(problem: CheckProblem, provider: Provider, model: string): string {
+  const p = label(provider);
+  if (problem === 'key-refused') return `${p} refused the key. Check it in Paste a key.`;
+  if (problem === 'offline') return `Couldn’t reach ${p}. Check your connection, then check ${model} again.`;
+  if (problem === 'busy') return `${p} is busy. Try ${model} again in a moment.`;
+  return `${p} had a problem on its side. Try ${model} again soon.`;
+}
+export function ModelCheckProblem({ problem, provider, model, onCheck }: { problem: CheckProblem; provider: Provider; model: string; onCheck?: () => void }) {
+  const refused = problem === 'key-refused';
+  return (
+    <Note bg={refused ? 'var(--error-bg)' : 'var(--warning-bg)'} center role="alert">{refused ? <Cross /> : <Warn />}
+      <span style={{ ...s, flexGrow: 1, color: 'var(--ink)' }}>{modelCheckProblemLine(problem, provider, model)}</span>
+      {!refused && <button type="button" onClick={onCheck} style={btn2}>Check model</button>}</Note>
   );
 }
 export function ModelNotFound({ provider, model, previous, onUsePrevious, onShowModels }: { provider: Provider; model: string; previous: string; onUsePrevious?: () => void; onShowModels?: () => void }) {
@@ -232,10 +250,7 @@ export function ModelField({ provider, saved, apiKey, onSave, onPasteKey, onPenv
   else if (check.kind === 'not-found') result = <ModelNotFound provider={provider} model={check.model} previous={check.previous} onUsePrevious={() => usePrevious(check.previous)} onShowModels={() => { access(); setOpen(true); }} />;
   else if (check.kind === 'not-for-text') result = <ModelNotForText provider={provider} model={check.model} />;
   else if (check.kind === 'access') result = <ProviderAccess provider={provider} onAllow={runCheck} />;
-  else if (check.kind === 'error') result = check.code === 'auth' ? <KeyRejected provider={provider} />
-    : check.code === 'offline' ? <Offline />
-    : check.code === 'rate-limited' ? <ProviderBusyRetried provider={provider} onTryNow={runCheck} />
-    : <KeyCheckUnreachable onTryAgain={runCheck} />;
+  else if (check.kind === 'error') result = <ModelCheckProblem problem={checkProblemFor(check.code)} provider={provider} model={value.trim() || current} onCheck={runCheck} />;
   else if (yours) result = <ModelTyped onCheck={runCheck} />;
   else result = <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button type="button" onClick={runCheck} style={btn2}>Check model</button></div>;
 
@@ -272,6 +287,10 @@ const SHEET: [string, ReactNode][] = [
   ['model-typed · Settings (Model, a name not in the list)', <><ModelInput value="gpt-4o-2024-11-20" yours /><ModelTyped /></>],
   ['model-checking · Settings (Model)', <><ModelInput value="gpt-4o-2024-11-20" yours hideChevron /><ModelChecking model="gpt-4o-2024-11-20" /></>],
   ['model-check-ok · Settings (Model)', <ModelCheckOk model="gpt-4o-2024-11-20" ms={1400} />],
+  ['model-check-key-refused · Settings (Model)', <ModelCheckProblem problem="key-refused" provider="openai" model="gpt-4.1" />],
+  ['model-check-offline · Settings (Model)', <ModelCheckProblem problem="offline" provider="openai" model="gpt-4.1" />],
+  ['model-check-busy · Settings (Model)', <ModelCheckProblem problem="busy" provider="openai" model="gpt-4.1" />],
+  ['model-check-server-error · Settings (Model)', <ModelCheckProblem problem="server-error" provider="openai" model="gpt-4.1" />],
   ['model-not-found · Settings (Model), Making your clip', <><ModelInput value="gpt-4o-maxi" look="bad" hideChevron /><ModelNotFound provider="openai" model="gpt-4o-maxi" previous="gpt-4.1" /></>],
   ['model-not-for-text · Settings (Model)', <ModelNotForText provider="openai" model="whisper-1" />],
   ['model-needs-key · Settings (Model)', <><ModelInput value="claude-sonnet-4-5" /><ModelNeedsKey provider="anthropic" /></>],
@@ -286,7 +305,7 @@ export default function SettingsModel() {
         <section key={name} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <h2 className="mono" style={{ margin: 0, padding: '0 4px', fontSize: 11, fontWeight: 500, color: 'var(--faint)' }}>{name}</h2>
           <div style={{ padding: 14, borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {name.startsWith('model-check-ok') || name.startsWith('model-not-') ? null : <span style={{ fontSize: 13, fontWeight: 600 }}>Model</span>}
+            {name.startsWith('model-check-') || name.startsWith('model-not-') ? null : <span style={{ fontSize: 13, fontWeight: 600 }}>Model</span>}
             {body}
           </div>
         </section>
