@@ -46,7 +46,7 @@ describe('applyPrompt', () => {
         init?.signal?.addEventListener('abort', () => rej(new DOMException('aborted', 'AbortError')));
       }));
       const p = applyPrompt(r, 'Slower', { ai: 'cloud', key: KEY, fetch, timeoutMs: 1000 });
-      const check = expect(p).rejects.toMatchObject({ state: 'groq-down' });
+      const check = expect(p).rejects.toMatchObject({ state: 'provider-down' });
       await vi.advanceTimersByTimeAsync(1001);
       await check;
     } finally {

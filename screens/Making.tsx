@@ -5,8 +5,8 @@ import { HOSTS, requestHost } from '../lib/hostAccess';
 import { MAX_BUSY_RETRIES, draft, runner, useRun, useSettings } from '../lib/makeClip';
 import type { ClipType } from '../lib/types';
 import { send } from '../lib/messages';
-import { AiFooter, GroqBusy, GroqBusyRetried, GroqDown, KeyNeeded, MakingFailed, Offline, TooLong } from './StatesCreate';
-import { GroqAccess, PenvDisconnected } from './StatesSetup';
+import { AiFooter, KeyNeeded, ProviderBusy, ProviderBusyRetried, ProviderDown, MakingFailed, Offline, TooLong } from './StatesCreate';
+import { PenvDisconnected, ProviderAccess } from './StatesSetup';
 import { RecipeThumb, TYPE_NAMES } from './Templates';
 
 const check = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success-ink)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>;
@@ -33,7 +33,8 @@ export default function Making() {
   const { navigate, replace } = useRouter();
   const run = useRun();
   const settings = useSettings();
-  const ai = run.by ?? (settings?.ai === 'local' ? 'local' : 'cloud');
+  const provider = settings?.provider ?? 'groq';
+  const by = run.by ?? (settings?.ai === 'local' ? 'builtin' : provider);
 
   // Choosing another type on the sheet remakes the clip in it.
   useEffect(() => {
@@ -49,8 +50,8 @@ export default function Making() {
     if (run.status === 'done' && run.notices.length === 0) { draft.clear(); runner.reset(); replace('Home'); }
   }, [run.status, run.notices, replace]);
 
-  // Groq's limit is per minute: wait it out once, then try again.
-  const waitMs = run.failure === 'groq-busy' ? (run.retryAfterMs ?? 20_000) : undefined;
+  // Providers limit per minute: wait it out once, then try again.
+  const waitMs = run.failure === 'provider-busy' ? (run.retryAfterMs ?? 20_000) : undefined;
   const autoRetry = run.status === 'failed' && waitMs !== undefined && run.busyRetries < MAX_BUSY_RETRIES;
   useEffect(() => {
     if (!autoRetry) return;
@@ -60,7 +61,7 @@ export default function Making() {
 
   const again = () => { void runner.start(draft.get(), { access: 'granted' }); };
   // Chrome only asks inside the click, so the request goes out before anything is awaited.
-  const allow = () => { const access = requestHost(HOSTS.groq); void access.then((a) => runner.start(draft.get(), { access: a })); };
+  const allow = () => { const access = requestHost(HOSTS[provider]); void access.then((a) => runner.start(draft.get(), { access: a })); };
   const cancel = () => { void runner.cancel().then(() => replace('Home')); };
   const openNow = () => { if (run.clipId) void send({ type: 'editor/open', clipId: run.clipId }); else void runner.openNow(draft.get()); };
 
@@ -71,13 +72,13 @@ export default function Making() {
 
   let card: ReactNode = null;
   if (failed === 'making-failed') card = <MakingFailed onTryAgain={again} onTemplates={() => navigate('Templates')} />;
-  else if (failed === 'groq-busy' && !autoRetry) card = <GroqBusyRetried onTryNow={again} />;
-  else if (failed === 'groq-busy') card = <GroqBusy seconds={Math.ceil((waitMs ?? 20_000) / 1000)} onTryNow={again} />;
-  else if (failed === 'groq-down') card = <GroqDown onOpenSettings={() => navigate('Settings')} />;
+  else if (failed === 'provider-busy' && !autoRetry) card = <ProviderBusyRetried provider={provider} onTryNow={again} />;
+  else if (failed === 'provider-busy') card = <ProviderBusy provider={provider} seconds={Math.ceil((waitMs ?? 20_000) / 1000)} onTryNow={again} />;
+  else if (failed === 'provider-down') card = <ProviderDown provider={provider} onOpenSettings={() => navigate('Settings')} />;
   else if (failed === 'key-needed') card = <KeyNeeded onPasteKey={() => navigate('PasteKey')} />;
   else if (failed === 'offline') card = <Offline />;
   else if (failed === 'penv-disconnected') card = <PenvDisconnected onConnect={() => navigate('PenvConnect')} />;
-  else if (failed === 'groq-access') card = <GroqAccess onAllow={allow} />;
+  else if (failed === 'provider-access') card = <ProviderAccess provider={provider} onAllow={allow} />;
   else if (run.notices.includes('too-long')) card = <TooLong />;
 
   return (
@@ -107,7 +108,7 @@ export default function Making() {
       <div style={{ padding: '16px 16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <button type="button" onClick={openNow} disabled={run.status === 'idle' || run.status === 'failed'} className="btn btn-secondary btn-block">Open the editor now</button>
         <button type="button" onClick={cancel} style={{ border: 0, background: 'none', font: '500 13px var(--font)', color: 'var(--accent)', cursor: 'pointer' }}>Cancel</button>
-        <AiFooter ai={ai} />
+        <AiFooter by={by} />
       </div>
     </main>
   );

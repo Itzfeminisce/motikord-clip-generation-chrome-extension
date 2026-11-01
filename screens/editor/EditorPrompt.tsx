@@ -4,9 +4,9 @@ import { applyPrompt, rebase } from '../../lib/editor/applyPrompt';
 import { HOSTS, requestHost, type HostAccess } from '../../lib/hostAccess';
 import { getSettings, onSettingsChanged } from '../../lib/settings';
 import { openSidePanelOn } from '../../lib/sidepanelGo';
-import type { AiMode } from '../../lib/types';
+import type { AiMode, Provider } from '../../lib/types';
 import Editor, { useEditor } from './Editor';
-import { ChangeTooLong, GroqAccess, GroqBusy, GroqBusyRetried, GroqDown, KeyNeeded, Offline, PromptFailed, PromptWorking } from './StatesPrompt';
+import { ChangeTooLong, KeyNeeded, ProviderAccess, ProviderBusy, ProviderBusyRetried, ProviderDown, Offline, PromptFailed, PromptWorking } from './StatesPrompt';
 
 // Editor frame, centre: "Tell Motikord what to change" with its chips. EditorPrompt frame: the "Done." toast with Undo.
 
@@ -23,20 +23,21 @@ export function PromptBox() {
   const [ui, setUi] = useState<Ui>({ kind: 'idle' });
   const last = useRef('');
   const ai = useRef<AiMode>('cloud');
+  const [provider, setProvider] = useState<Provider>('groq');
   const windowId = useRef<number>(undefined);
   const stop = useRef<AbortController>(undefined);
   // Set from the click until the run ends, so a second send while Chrome asks for access starts nothing.
   const busy = useRef(false);
-  // groq-busy retries by itself once per prompt; a send by the user starts the count again.
+  // provider-busy retries by itself once per prompt; a send by the user starts the count again.
   const retried = useRef(false);
   const recipe = useRef(state.clip.recipe);
   recipe.current = state.clip.recipe;
 
   useEffect(() => {
-    void getSettings().then((s) => { ai.current = s.ai; }).catch(() => undefined);
+    void getSettings().then((s) => { ai.current = s.ai; setProvider(s.provider); }).catch(() => undefined);
     // Known before any click, so "Open Settings" can open the side panel inside the click.
     void browser.windows.getCurrent().then((w) => { windowId.current = w.id; }).catch(() => undefined);
-    const off = onSettingsChanged((s) => { ai.current = s.ai; });
+    const off = onSettingsChanged((s) => { ai.current = s.ai; setProvider(s.provider); });
     const online = () => setUi((u) => (u.kind === 'offline' ? { kind: 'idle' } : u));
     window.addEventListener('online', online);
     return () => { off(); window.removeEventListener('online', online); stop.current?.abort(); };
@@ -64,8 +65,8 @@ export function PromptBox() {
       switch (e.state) {
         case undefined: setUi({ kind: 'idle' }); break;
         case 'change-too-long': setUi({ kind: 'too-long', totalMs: e.detail.totalMs ?? 0 }); break;
-        case 'groq-busy': setUi(retried.current ? { kind: 'busy-retried' } : { kind: 'busy', left: Math.max(1, Math.ceil((e.detail.retryAfterMs ?? BUSY_S * 1000) / 1000)) }); break;
-        case 'groq-down': setUi({ kind: 'down' }); break;
+        case 'provider-busy': setUi(retried.current ? { kind: 'busy-retried' } : { kind: 'busy', left: Math.max(1, Math.ceil((e.detail.retryAfterMs ?? BUSY_S * 1000) / 1000)) }); break;
+        case 'provider-down': setUi({ kind: 'down' }); break;
         // Penv Cloud keeps its own key, so a missing one there is still sent to Settings.
         case 'key-needed': setUi({ kind: (await getSettings().catch(() => undefined))?.keySource === 'penv-app' ? 'down' : 'key' }); break;
         case 'offline': setUi({ kind: 'offline' }); break;
@@ -83,12 +84,12 @@ export function PromptBox() {
     if (!prompt || busy.current) return;
     busy.current = true;
     retried.current = false;
-    const access: Promise<HostAccess> = ai.current === 'cloud' ? requestHost(HOSTS.groq) : Promise.resolve('granted');
+    const access: Promise<HostAccess> = ai.current === 'cloud' ? requestHost(HOSTS[provider]) : Promise.resolve('granted');
     last.current = prompt;
     void run(prompt, access);
   };
 
-  // groq-busy counts down and tries again by itself, once; Groq was reachable, so no new host prompt is needed.
+  // provider-busy counts down and tries again by itself, once; the provider was reachable, so no new host prompt is needed.
   useEffect(() => {
     if (ui.kind !== 'busy') return;
     const id = setTimeout(() => {
@@ -114,12 +115,12 @@ export function PromptBox() {
     switch (ui.kind) {
       case 'failed': return <PromptFailed onRetry={() => send(last.current)} />;
       case 'too-long': return <ChangeTooLong totalMs={ui.totalMs} />;
-      case 'busy': return <GroqBusy seconds={ui.left} onTryNow={() => send(last.current)} />;
-      case 'busy-retried': return <GroqBusyRetried onTryNow={() => send(last.current)} />;
-      case 'down': return <GroqDown onOpenSettings={openSettings} />;
+      case 'busy': return <ProviderBusy provider={provider} seconds={ui.left} onTryNow={() => send(last.current)} />;
+      case 'busy-retried': return <ProviderBusyRetried provider={provider} onTryNow={() => send(last.current)} />;
+      case 'down': return <ProviderDown provider={provider} onOpenSettings={openSettings} />;
       case 'key': return <KeyNeeded onPasteKey={pasteKey} />;
       case 'offline': return <Offline />;
-      case 'access': return <GroqAccess onAllow={() => send(last.current)} />;
+      case 'access': return <ProviderAccess provider={provider} onAllow={() => send(last.current)} />;
       default: return null;
     }
   })();

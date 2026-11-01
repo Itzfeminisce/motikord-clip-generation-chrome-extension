@@ -11,7 +11,8 @@ import { restoreKeys, wasDisconnected } from '../lib/penvApp';
 import { formatLength, getTemplate } from '../lib/templates';
 import type { Aspect, Clip } from '../lib/types';
 import { displayName } from '../lib/yourMedia';
-import { GrabAccessNotGiven, GrabNotAllowed, Offline, PROMPT_EMPTY_HINT, PROMPT_PLACEHOLDER } from './StatesCreate';
+import { GrabAccessNotGiven, GrabNotAllowed, HomeFooter, Offline, PROMPT_EMPTY_HINT, PROMPT_PLACEHOLDER } from './StatesCreate';
+import { PROVIDERS } from '../lib/providers';
 import { PenvDisconnected } from './StatesSetup';
 import { RecipeThumb, TemplateCard, TYPE_NAMES, useUseTemplate } from './Templates';
 
@@ -60,10 +61,11 @@ export default function Home() {
   // The keys are gone after a restart; load them again from Penv Cloud, then see whether it still lets us in.
   const source = settings?.keySource;
   const conn = settings?.penvApp;
+  const keyName = PROVIDERS[settings?.provider ?? 'groq'].keyName;
   useEffect(() => {
     if (source !== 'penv-app') { setDisconnected(false); return; }
-    restoreKeys(conn).then(() => wasDisconnected()).then(setDisconnected).catch((error: unknown) => console.error('Motikord: could not check Penv Cloud', error));
-  }, [source, conn]);
+    restoreKeys(conn, fetch, keyName).then(() => wasDisconnected()).then(setDisconnected).catch((error: unknown) => console.error('Motikord: could not check Penv Cloud', error));
+  }, [source, conn, keyName]);
 
   const aspect = d.aspect ?? settings?.defaultAspect ?? '9:16';
   const forced = d.type ?? settings?.defaultType;
@@ -73,7 +75,7 @@ export default function Home() {
 
   const make = () => {
     // Chrome only asks inside the click, so the request goes out before anything is awaited.
-    const access = settings?.ai === 'local' ? Promise.resolve('granted' as const) : requestHost(HOSTS.groq);
+    const access = settings?.ai === 'local' ? Promise.resolve('granted' as const) : requestHost(HOSTS[settings?.provider ?? 'groq']);
     navigate('Making');
     void access.then((a) => runner.start(draft.get(), { access: a }));
   };
@@ -200,7 +202,7 @@ export default function Home() {
       )}
 
       <div style={{ flexGrow: 1 }} />
-      {settings && <span style={{ padding: '12px 24px 16px', fontSize: 12, color: 'var(--faint)', textAlign: 'center' }}>{settings.ai === 'local' ? 'Chrome’s built-in AI writes the clip from your words. Everything stays on this computer.' : 'Groq writes the clip from your words. Your media stays on this computer.'}</span>}
+      {settings && <span style={{ padding: '12px 24px 16px', display: 'flex', justifyContent: 'center' }}><HomeFooter by={settings.ai === 'local' ? 'builtin' : settings.provider} /></span>}
     </main>
   );
 }

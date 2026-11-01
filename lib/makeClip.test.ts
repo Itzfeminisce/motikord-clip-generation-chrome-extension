@@ -91,9 +91,9 @@ describe('makeClip', () => {
   };
   it('maps each failure to its state card', async () => {
     expect(await fails([new TypeError('Failed to fetch')])).toMatchObject({ state: 'offline' });
-    expect(await fails([new Response('{}', { status: 429, headers: { 'retry-after': '20' } })])).toMatchObject({ state: 'groq-busy', retryAfterMs: 20_000 });
-    expect(await fails([new Response('{}', { status: 503 })])).toMatchObject({ state: 'groq-down' });
-    expect(await fails([new Response('{}', { status: 401 })])).toMatchObject({ state: 'groq-down' });
+    expect(await fails([new Response('{}', { status: 429, headers: { 'retry-after': '20' } })])).toMatchObject({ state: 'provider-busy', retryAfterMs: 20_000 });
+    expect(await fails([new Response('{}', { status: 503 })])).toMatchObject({ state: 'provider-down' });
+    expect(await fails([new Response('{}', { status: 401 })])).toMatchObject({ state: 'provider-down' });
     expect(await fails(['not json', 'still not json'])).toMatchObject({ state: 'making-failed' });
   });
 
@@ -184,11 +184,11 @@ describe('library', () => {
     expect(await getClip('id-1')).toBeUndefined();
   });
 
-  it('shows groq-access without any AI call when host access is denied', async () => {
+  it('shows provider-access without any AI call when host access is denied', async () => {
     const g = groq();
     const runner = createRunner(deps({ hooks: g.hooks }));
     await runner.start({ prompt: 'A promo', attached: [] }, { access: 'denied' });
-    expect(runner.get()).toMatchObject({ status: 'failed', failure: 'groq-access' });
+    expect(runner.get()).toMatchObject({ status: 'failed', failure: 'provider-access' });
     expect(g.fetch).not.toHaveBeenCalled();
   });
 
@@ -196,7 +196,7 @@ describe('library', () => {
     const g = groq(new Response('{}', { status: 429 }));
     const runner = createRunner(deps({ hooks: g.hooks }));
     await runner.start({ prompt: 'A promo', attached: [], type: 'promo' });
-    expect(runner.get()).toMatchObject({ status: 'failed', failure: 'groq-busy' });
+    expect(runner.get()).toMatchObject({ status: 'failed', failure: 'provider-busy' });
     expect(await listClips()).toEqual([]);
   });
 });
@@ -248,7 +248,7 @@ describe('runner review fixes', () => {
     await runner.start(draftA);
     expect(runner.get().busyRetries).toBe(0);
     await runner.start(draftA, { auto: true });
-    expect(runner.get()).toMatchObject({ failure: 'groq-busy', busyRetries: 1 });
+    expect(runner.get()).toMatchObject({ failure: 'provider-busy', busyRetries: 1 });
     await runner.start(draftA);
     expect(runner.get().busyRetries).toBe(0);
   });
