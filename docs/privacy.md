@@ -9,7 +9,7 @@ Nothing leaves your computer unless you switch it on. There is no account, no an
 | Clips, recipes, brand kit, library | Your computer (IndexedDB and OPFS) | Nothing. Leaves only inside a file you export. |
 | Your own media and fonts | Your computer | Nothing. Never sent to AI or any library. |
 | Prompts and recipe text | Your computer | Sent to the AI you chose (Groq by default) when you prompt. Not sent if Chrome's built-in AI is used. |
-| Page grabs | Your computer | The text of a grab goes to the AI only as part of a prompt you send. The page is read only after you press "Grab from this page" and allow that site. |
+| Page grabs | Your computer | The text of a grab goes to the AI only as part of a prompt you send. The page is read only after you press "Grab from this page" and allow access. |
 | Media and music searches | Your computer | Your search words go to the library you search (Openverse or Pexels). Picked files are downloaded once from their source and kept here. |
 | Keys | `chrome.storage.session`, cleared when Chrome closes | Fetched from Penv Cloud after "Connect Penv Cloud", or pasted. Never printed, logged or committed. |
 
@@ -28,11 +28,11 @@ Chrome asks for these only when you first use the feature. Nothing is requested 
 - `api.openverse.org`: searches Openverse photos and music. It receives your search words.
 - `api.pexels.com`, `images.pexels.com`, `videos.pexels.com`: searches Pexels and downloads the photo or video you pick. Needs your Pexels key.
 - Source sites of Openverse files, used only to download a file you pick: `*.staticflickr.com`, `upload.wikimedia.org`, `cdn.freesound.org`, `*.jamendo.com`, `ccmixter.org`, `images.metmuseum.org`, `images.rawpixel.com`, `cdn.stocksnap.io`, `files.freemusicarchive.org`, `archive.org` and `*.archive.org`, `lh3.googleusercontent.com`, `player.vimeo.com`.
-- `https://*/*` and `http://*/*`: "Grab from this page" asks for the one site you are on, never all sites at once, so the picker can run there.
+- `https://*/*` and `http://*/*`: "Grab from this page" asks for the site you are on. When Chrome does not tell Motikord which site that is, it asks for all sites once, so the picker can run on any page. Nothing is read from a page until you press the button.
 
 ## What Motikord does not do
 - No tracking, analytics, advertising or crash reporting.
-- No reading of the pages you visit. A page is read only after you press "Grab from this page" and allow that site.
+- No reading of the pages you visit. A page is read only after you press "Grab from this page" and allow access.
 - No upload of your clips, media, brand kit or fonts.
 - No loading of remote code.
 
