@@ -5,7 +5,7 @@ import { useEditor } from './Editor';
 import { PlayIcon } from './StatesEditor';
 
 export function Transport() {
-  const { state, playhead, play } = useEditor();
+  const { state, playhead, play, setTime } = useEditor();
   const total = clipDuration(state.clip.recipe);
   const label = useRef<HTMLSpanElement>(null);
 
@@ -22,11 +22,15 @@ export function Transport() {
   }, [state.playing, playhead, total]);
 
   const toggle = () => play(!state.playing);
+  const toStart = () => { play(false); setTime(0); };
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
       <button type="button" aria-label={state.playing ? 'Pause' : 'Play'} onClick={toggle} style={{ width: 34, height: 34, border: 0, borderRadius: '50%', background: 'var(--ink)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0 }}>
         <PlayIcon playing={state.playing} />
+      </button>
+      <button type="button" aria-label="Back to start" title="Back to start (Home)" onClick={toStart} style={{ width: 34, height: 34, border: '1px solid #E0E0E4', borderRadius: '50%', background: 'var(--surface)', color: 'var(--ink)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0 }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" /></svg>
       </button>
       <span ref={label} style={{ fontFamily: 'var(--mono)', fontSize: 12, minWidth: 116 }}>{`${clock(state.timeMs)} / ${clock(total)}`}</span>
       <span style={{ fontSize: 12, color: 'var(--muted)' }}>Dashed line: safe area</span>

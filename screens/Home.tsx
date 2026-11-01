@@ -11,7 +11,7 @@ import { restoreKeys, wasDisconnected } from '../lib/penvApp';
 import { formatLength, getTemplate } from '../lib/templates';
 import type { Aspect, Clip } from '../lib/types';
 import { displayName } from '../lib/yourMedia';
-import { GrabNotAllowed, Offline, PROMPT_EMPTY_HINT, PROMPT_PLACEHOLDER } from './StatesCreate';
+import { GrabAccessNotGiven, GrabNotAllowed, Offline, PROMPT_EMPTY_HINT, PROMPT_PLACEHOLDER } from './StatesCreate';
 import { PenvDisconnected } from './StatesSetup';
 import { RecipeThumb, TemplateCard, TYPE_NAMES, useUseTemplate } from './Templates';
 
@@ -52,6 +52,7 @@ export default function Home() {
   const [recent, setRecent] = useState<Clip[]>([]);
   const [disconnected, setDisconnected] = useState(false);
   const [grabBlocked, setGrabBlocked] = useState(false);
+  const [grabDenied, setGrabDenied] = useState(false);
 
   useEffect(() => {
     listClips().then((all) => setRecent(all.slice(0, 3))).catch((error: unknown) => console.error('Motikord: could not list your clips', error));
@@ -81,7 +82,7 @@ export default function Home() {
   const grab = () => {
     void requestPageAccess(pageUrl.current).then((access) => {
       setGrabBlocked(access === 'blocked');
-      if (access === 'denied') console.warn('Motikord: access to this page was not given');
+      setGrabDenied(access === 'denied');
       if (access === 'granted') navigate('Grab');
     });
   };
@@ -103,6 +104,7 @@ export default function Home() {
 
       {(!online && settings?.ai !== 'local') && <div style={{ margin: '12px 16px 0' }}><Offline /></div>}
       {grabBlocked && <div style={{ margin: '12px 16px 0' }}><GrabNotAllowed /></div>}
+      {grabDenied && <div style={{ margin: '12px 16px 0' }}><GrabAccessNotGiven onTryAgain={grab} /></div>}
       {disconnected && <div style={{ margin: '12px 16px 0' }}><PenvDisconnected onConnect={() => navigate('PenvConnect')} /></div>}
 
       <div style={{ margin: '14px 16px 0', padding: 14, borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 12 }}>
