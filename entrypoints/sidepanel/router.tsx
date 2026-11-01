@@ -7,12 +7,14 @@ import Library from '../../screens/Library';
 import LibraryEmpty from '../../screens/LibraryEmpty';
 import Main from '../../screens/Main';
 import Making from '../../screens/Making';
+import MakingFailed from '../../screens/MakingFailed';
 import PasteKey from '../../screens/PasteKey';
 import PenvConnect from '../../screens/PenvConnect';
 import PenvConnected from '../../screens/PenvConnected';
 import Privacy from '../../screens/Privacy';
 import Recovered from '../../screens/Recovered';
 import Settings from '../../screens/Settings';
+import SettingsModel from '../../screens/SettingsModel';
 import Setup from '../../screens/Setup';
 import StatesCreate from '../../screens/StatesCreate';
 import StatesLibrary from '../../screens/StatesLibrary';
@@ -23,8 +25,8 @@ import YourMedia from '../../screens/YourMedia';
 /** Side panel screens, one per FRAMES.md frame, named as the frame (rows 1, 2, 4 and 6). */
 export const sidepanel = createRouter({
   Main, Setup, PenvConnect, PasteKey, PenvConnected,
-  Home, ClipType, Templates, YourMedia, Making, Grab,
-  BrandKit, Library, LibraryEmpty, Settings, Privacy, Recovered, StatesSetup, StatesCreate, StatesLibrary,
+  Home, ClipType, Templates, YourMedia, Making, MakingFailed, Grab,
+  BrandKit, Library, LibraryEmpty, Settings, SettingsModel, Privacy, Recovered, StatesSetup, StatesCreate, StatesLibrary,
 });
 export type SidepanelScreen = (typeof sidepanel.names)[number];
 export const { RouterProvider, useRouter, Outlet } = sidepanel;

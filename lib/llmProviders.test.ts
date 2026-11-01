@@ -1,6 +1,7 @@
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { chat, chatModels, extractJson, listModels, recommendedModel, type FetchLike, type LLMError } from './llm';
+import { chat, chatModels, checkModel, extractJson, FALLBACK_MODEL, listModels, recommendedModel, type FetchLike, type LLMError } from './llm';
+import { SUGGESTED_MODELS } from './providers';
 import { updateSettings } from './settings';
 
 beforeEach(() => { fakeBrowser.reset(); });
@@ -56,6 +57,57 @@ describe('model lists', () => {
     expect(await code(listModels('openai', 'sk-test', async () => new Response('{}', { status: 500 })))).toBe('server');
     expect(await code(listModels('openai', 'sk-test', async () => { throw new TypeError('Failed to fetch'); }))).toBe('offline');
   });
+
+  // X's bug: a working OpenAI key without the models scope made Settings say "Couldn't load OpenAI's models".
+  it('says no-list, not auth, when a key that can chat may not list models', async () => {
+    const scope = (status: number) => async () => json({ error: { message: 'You have insufficient permissions for this operation. Missing scopes: api.model.read.', type: 'invalid_request_error' } }, status);
+    expect(await code(listModels('openai', 'sk-proj-test', scope(401)))).toBe('no-list');
+    expect(await code(listModels('openai', 'sk-proj-test', scope(403)))).toBe('no-list');
+    expect(await code(listModels('openai', 'sk-test', async () => json({ error: { message: 'Incorrect API key provided.', code: 'invalid_api_key' } }, 401)))).toBe('auth');
+  });
+
+  it('still chats on the fallback model when the list is not allowed', async () => {
+    await updateSettings({ provider: 'openai' });
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const fetch: FetchLike = vi.fn(async (url: string) => url === OPENAI_MODELS
+      ? json({ error: { message: 'Missing scopes: api.model.read.' } }, 401) : openaiOk('ok'));
+    expect((await chat(m, { ai: 'cloud', key: 'sk-proj-test', fetch })).text).toBe('ok');
+    expect(err).not.toHaveBeenCalled();
+    err.mockRestore();
+  });
+
+  it('keeps a built-in suggested list per provider, and falls back to its first model', () => {
+    for (const [p, s] of Object.entries(SUGGESTED_MODELS)) {
+      expect(s.models.length).toBeGreaterThanOrEqual(2);
+      expect(s.models.length).toBeLessThanOrEqual(3);
+      expect(s.models).toContain(s.faster);
+      expect(FALLBACK_MODEL[p as keyof typeof FALLBACK_MODEL]).toBe(s.models[0]);
+    }
+    expect(SUGGESTED_MODELS.openai.models).toEqual(['gpt-4.1', 'gpt-4.1-mini', 'gpt-4o']);
+  });
+});
+
+describe('Check model', () => {
+  it('sends one tiny request to that model with the key and times it', async () => {
+    const { fetch, calls } = fake({}, openaiOk('OK'));
+    let t = 1000;
+    expect(await checkModel('openai', 'gpt-4o-2024-11-20', 'sk-test', fetch, () => (t += 1400) - 1400)).toBe(1400);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.url).toBe('https://api.openai.com/v1/chat/completions');
+    expect(calls[0]!.body).toMatchObject({ model: 'gpt-4o-2024-11-20', max_completion_tokens: 16 });
+    expect(calls[0]!.init?.headers).toMatchObject({ Authorization: 'Bearer sk-test' });
+  });
+
+  it('reports a missing model, a model that can’t write and a refused key', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const gone = json({ error: { message: 'The model `gpt-4o-maxi` does not exist or you do not have access to it.', code: 'model_not_found' } }, 404);
+    expect(await code(checkModel('openai', 'gpt-4o-maxi', 'sk-test', fake({}, gone).fetch))).toBe('model-not-found');
+    const none = fake({});
+    expect(await code(checkModel('openai', 'whisper-1', 'sk-test', none.fetch))).toBe('not-for-text');
+    expect(none.calls).toHaveLength(0);
+    expect(await code(checkModel('groq', 'llama-3.3-70b-versatile', 'gsk_test', fake({}, json({ error: { message: 'Invalid API Key' } }, 401)).fetch))).toBe('auth');
+    err.mockRestore();
+  });
 });
 
 describe('OpenAI-compatible providers', () => {
@@ -81,12 +133,25 @@ describe('OpenAI-compatible providers', () => {
     expect(chats()[1]!.body).not.toHaveProperty('temperature');
   });
 
-  it('falls back to the recommended model when the pick is gone', async () => {
+  it('says model-not-found when the person’s pick is gone, without switching model', async () => {
     await updateSettings({ provider: 'openrouter', models: { openrouter: 'gone/model' } });
     const gone = json({ error: { message: 'gone/model is not a valid model ID', code: 404 } }, 404);
     const { fetch, chats } = fake({ [OPENROUTER_MODELS]: [{ id: 'anthropic/claude-sonnet-4.5' }] }, gone, openaiOk('ok'));
-    expect((await chat(m, { ai: 'cloud', key: 'sk-or-test', fetch })).text).toBe('ok');
-    expect(chats()[1]!.body!.model).toBe('anthropic/claude-sonnet-4.5');
+    expect(await code(chat(m, { ai: 'cloud', key: 'sk-or-test', fetch }))).toBe('model-not-found');
+    expect(chats()).toHaveLength(1);
+  });
+
+  it('re-picks once from the list when there is no pick and the guess is gone', async () => {
+    await updateSettings({ provider: 'openai' });
+    const gone = json({ error: { message: 'The model `gpt-9` does not exist', code: 'model_not_found' } }, 404);
+    const { fetch, chats } = fake({ [OPENAI_MODELS]: [{ id: 'gpt-4.1' }] }, gone, openaiOk('ok'));
+    expect((await chat(m, { ai: 'cloud', key: 'sk-test', fetch })).text).toBe('ok');
+    expect(chats()[1]!.body!.model).toBe('gpt-4.1');
+  });
+
+  it('says not-for-text for a model that is not a chat model', async () => {
+    const notChat = json({ error: { message: 'This is not a chat model and thus not supported in the v1/chat/completions endpoint.' } }, 404);
+    expect(await code(chat(m, { ai: 'cloud', provider: 'openai', model: 'gpt-x-audio', key: 'sk-test', fetch: fake({}, notChat).fetch }))).toBe('not-for-text');
   });
 
   it('says who has no key', async () => {
@@ -121,11 +186,10 @@ describe('Anthropic', () => {
     expect(await code(run(async () => anthropicOk('{"a":', 'max_tokens'), { json: true }))).toBe('bad-reply');
   });
 
-  it('re-picks a retired model from the list once', async () => {
+  it('says model-not-found for a retired model the person picked', async () => {
     const gone = json({ type: 'error', error: { type: 'not_found_error', message: 'model: claude-old' } }, 404);
-    const { fetch, chats } = fake({ [ANTHROPIC_MODELS]: [{ id: 'claude-sonnet-4-5' }] }, gone, anthropicOk('ok'));
-    expect((await run(fetch, { model: 'claude-old' })).text).toBe('ok');
-    expect(chats()[1]!.body!.model).toBe('claude-sonnet-4-5');
+    const { fetch } = fake({ [ANTHROPIC_MODELS]: [{ id: 'claude-sonnet-4-5' }] }, gone);
+    expect(await code(run(fetch, { model: 'claude-old' }))).toBe('model-not-found');
   });
 
   it('extracts an object from prose', () => {
