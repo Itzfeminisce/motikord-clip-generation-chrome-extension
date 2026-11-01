@@ -1,4 +1,4 @@
-import type { LicenceId } from '../types';
+import type { LicenceId, MediaSourceId } from '../types';
 import { isFreeToUse, openverseLicence, openverseLicenceName } from './licence';
 
 export type MediaKind = 'image' | 'video' | 'audio';
@@ -6,7 +6,9 @@ export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 
 /** One search hit, the same shape for every library. */
 export interface MediaResult {
-  id: string; source: 'openverse' | 'pexels'; kind: MediaKind;
+  id: string; source: MediaSourceId | 'custom'; kind: MediaKind;
+  /** Shown as "From"; a custom source's own name. */ sourceName?: string;
+  /** Unsplash's download-tracking link, pinged once when the photo is used. */ trackUrl?: string;
   title: string; author: string; licence: LicenceId;
   /** "CC BY 4.0" */ licenceLabel: string; licenceUrl?: string;
   /** The page it lives on, for "See it on Openverse" and the credit link. */ pageUrl: string;

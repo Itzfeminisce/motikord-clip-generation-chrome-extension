@@ -14,7 +14,7 @@ describe('settings', () => {
       defaultAspect: '9:16',
       defaultExport: { kind: 'mp4', quality: '1080p' },
       smoothPreview: true,
-      libraries: { openverse: true, pexels: true, allLicences: false },
+      media: { on: {}, custom: [], allLicences: false },
       onboarded: false,
       voiceOn: true,
       voiceLang: '',
@@ -45,10 +45,26 @@ describe('settings', () => {
   });
 
   it('fills missing nested fields from the defaults', () => {
-    const s = mergeSettings({ ai: 'local', libraries: { pexels: false } });
+    const s = mergeSettings({ ai: 'local', media: { allLicences: true } });
     expect(s.ai).toBe('local');
-    expect(s.libraries).toEqual({ openverse: true, pexels: false, allLicences: false });
+    expect(s.media).toEqual({ on: {}, custom: [], allLicences: true });
     expect(s.defaultExport).toEqual(DEFAULT_SETTINGS.defaultExport);
+  });
+
+  it('moves the old libraries into Media sources', () => {
+    const s = mergeSettings({ libraries: { openverse: false, pexels: true, allLicences: true } });
+    expect(s.media).toEqual({ on: { openverse: false, pexels: true }, custom: [], allLicences: true });
+    expect('libraries' in s).toBe(false);
+    // Once media is saved, it wins over anything old.
+    expect(mergeSettings({ libraries: { openverse: false }, media: { on: { openverse: true } } }).media.on.openverse).toBe(true);
+  });
+
+  it('merges media.on per source and keeps custom sources', async () => {
+    const src = { id: 'c1', name: 'Bakery', url: 'https://photos.example.com/wp-json/wp/v2/media?search={query}', kinds: ['image' as const], format: 'wordpress' as const, on: true };
+    await updateSettings({ media: { on: { museums: true }, custom: [src] } });
+    const s = await updateSettings({ media: { on: { ccmixter: true } } });
+    expect(s.media.on).toEqual({ museums: true, ccmixter: true });
+    expect(s.media.custom).toEqual([src]);
   });
 
   it('updates one level deep and tells listeners', async () => {
