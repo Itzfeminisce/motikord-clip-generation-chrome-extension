@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { guessType } from '../lib/ai/detectType';
 import { Button, IconButton } from '../components/ui';
 import { useRouter } from '../entrypoints/sidepanel/router';
@@ -15,6 +15,10 @@ import { GrabAccessNotGiven, GrabNotAllowed, HomeFooter, Offline, PROMPT_EMPTY_H
 import { PROVIDERS } from '../lib/providers';
 import { PenvDisconnected } from './StatesSetup';
 import { RecipeThumb, TemplateCard, TYPE_NAMES, useUseTemplate } from './Templates';
+import { insertWords, LEVEL_BARS } from '../lib/voice/listen';
+import { useVoice } from '../lib/voice/useVoice';
+import { MIC_PATHS, VoiceFooter, VoiceStateCard } from './StatesVoice';
+import { HomeListening, VOICE_MAKE_HINT } from './VoicePrompt';
 
 const ASPECTS: Aspect[] = ['9:16', '1:1', '16:9'];
 const STRIP = ['template-bold-quote', 'template-growing-bars', 'template-pulse-sting'];
@@ -43,7 +47,8 @@ function useOnline(): boolean {
   return online;
 }
 
-export default function Home() {
+/** `preview`: the VoicePrompt frame's listening card, for the dev route only. */
+export default function Home({ preview }: { preview?: { settled: string; interim: string; ms: number } } = {}) {
   const { navigate } = useRouter();
   const d = useDraft();
   const pageUrl = useActiveTabUrl();
@@ -54,6 +59,22 @@ export default function Home() {
   const [disconnected, setDisconnected] = useState(false);
   const [grabBlocked, setGrabBlocked] = useState(false);
   const [grabDenied, setGrabDenied] = useState(false);
+  const promptBox = useRef<HTMLTextAreaElement>(null);
+  // Heard words go where the cursor was when Speak was pressed, never over typed text.
+  const cursor = useRef(0);
+  const voice = useVoice((words) => {
+    const now = draft.get().prompt;
+    const at = insertWords(now, cursor.current, words);
+    draft.set({ prompt: at.text });
+    requestAnimationFrame(() => { const el = promptBox.current; if (el) { el.focus(); el.setSelectionRange(at.cursor, at.cursor); } });
+  });
+  const speak = () => {
+    cursor.current = promptBox.current?.selectionStart ?? d.prompt.length;
+    voice.start();
+  };
+  const listening = preview
+    ? { kind: 'listening' as const, levels: Array.from({ length: LEVEL_BARS }, (_, i) => [0.1, 0.3, 0.8, 0.5, 1, 0.3, 0.7, 0.2, 0.6, 0.9, 0.4, 0.1, 0.3, 0.6, 0.2][i] ?? 0.3), ...preview }
+    : voice.ui.kind === 'listening' || voice.ui.kind === 'transcribing' ? voice.ui : undefined;
 
   useEffect(() => {
     listClips().then((all) => setRecent(all.slice(0, 3))).catch((error: unknown) => console.error('Motikord: could not list your clips', error));
@@ -70,7 +91,7 @@ export default function Home() {
   const aspect = d.aspect ?? settings?.defaultAspect ?? '9:16';
   const forced = d.type ?? settings?.defaultType;
   const type = forced ?? guessType(d.prompt);
-  const ready = canMake(d);
+  const ready = canMake(d) && !listening;
   const templates = STRIP.map(getTemplate).filter((t) => t !== undefined);
 
   const make = () => {
@@ -108,12 +129,30 @@ export default function Home() {
       {grabBlocked && <div style={{ margin: '12px 16px 0' }}><GrabNotAllowed /></div>}
       {grabDenied && <div style={{ margin: '12px 16px 0' }}><GrabAccessNotGiven onTryAgain={grab} /></div>}
       {disconnected && <div style={{ margin: '12px 16px 0' }}><PenvDisconnected onConnect={() => navigate('PenvConnect')} /></div>}
+      {voice.ui.kind === 'card' && (
+        <div style={{ margin: '12px 16px 0' }}>
+          <VoiceStateCard card={voice.ui.card} provider={voice.provider}
+            actions={{ onAllow: voice.allowMic, onTypeInstead: voice.dismiss, onOpenSettings: voice.openChromeSettings, onTryAgain: voice.tryAgain }} />
+        </div>
+      )}
 
+      {listening ? (
+        <HomeListening before={(preview ? '' : d.prompt).slice(0, cursor.current)} after={(preview ? '' : d.prompt).slice(cursor.current)}
+          settled={listening.kind === 'listening' ? listening.settled : ''} interim={listening.kind === 'listening' ? listening.interim : ''}
+          ms={listening.kind === 'listening' ? listening.ms : 0} levels={listening.kind === 'listening' ? listening.levels : Array.from({ length: LEVEL_BARS }, () => 0)}
+          transcribing={listening.kind === 'transcribing'} onDone={voice.done} onCancel={voice.cancel} />
+      ) : (
       <div style={{ margin: '14px 16px 0', padding: 14, borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <span style={{ fontSize: 13, fontWeight: 600 }}>What should the clip show?</span>
-          <textarea aria-label="Describe your clip" rows={4} value={d.prompt} placeholder={PROMPT_PLACEHOLDER} onChange={(e) => draft.set({ prompt: e.target.value })}
-            style={{ resize: 'none', border: '1px solid #E0E0E4', borderRadius: 12, padding: '10px 12px', font: '14px/1.45 var(--font)', color: 'var(--ink)', outline: 'none' }} />
+          <div style={{ position: 'relative' }}>
+            <textarea ref={promptBox} aria-label="Describe your clip" rows={4} value={d.prompt} placeholder={PROMPT_PLACEHOLDER} onChange={(e) => draft.set({ prompt: e.target.value })}
+              style={{ resize: 'none', border: '1px solid #E0E0E4', borderRadius: 12, padding: '10px 12px 44px', width: '100%', boxSizing: 'border-box', font: '14px/1.45 var(--font)', color: 'var(--ink)', outline: 'none', display: 'block' }} />
+            <button type="button" aria-label="Speak your prompt" title="Speak your prompt" onClick={(e) => { e.preventDefault(); speak(); }}
+              style={{ position: 'absolute', right: 8, bottom: 8, height: 32, padding: '0 12px 0 10px', border: 0, borderRadius: 999, background: '#FDF2F8', color: 'var(--accent-hover)', font: '600 12px/1 var(--font)', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{MIC_PATHS}</svg>Speak
+            </button>
+          </div>
         </label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           <button type="button" style={pill} onClick={grab}>
@@ -138,6 +177,7 @@ export default function Home() {
           </div>
         )}
       </div>
+      )}
 
       <div style={{ ...card, margin: '10px 16px 0' }}>
         <button type="button" onClick={() => navigate('ClipType')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', border: 0, borderBottom: '1px solid #EFEFF1', background: 'none', font: 'inherit', color: 'inherit', cursor: 'pointer', textAlign: 'left' }}>
@@ -169,7 +209,9 @@ export default function Home() {
         <Button block disabled={!ready} aria-disabled={!ready} onClick={make} style={{ height: 48, fontSize: 15, fontWeight: 600, borderRadius: 12 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" /></svg>Make clip
         </Button>
-        {!ready && <span style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center' }}>{PROMPT_EMPTY_HINT}</span>}
+        {listening
+          ? <span style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center' }}>{VOICE_MAKE_HINT}</span>
+          : !ready && <span style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center' }}>{PROMPT_EMPTY_HINT}</span>}
       </div>
 
       <div style={{ padding: '18px 16px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -202,7 +244,9 @@ export default function Home() {
       )}
 
       <div style={{ flexGrow: 1 }} />
-      {settings && <span style={{ padding: '12px 24px 16px', display: 'flex', justifyContent: 'center' }}><HomeFooter by={settings.ai === 'local' ? 'builtin' : settings.provider} /></span>}
+      {listening
+        ? <span style={{ padding: '12px 24px 16px', display: 'flex', justifyContent: 'center' }}><VoiceFooter path={preview ? { kind: 'local', download: false } : voice.path} /></span>
+        : settings && <span style={{ padding: '12px 24px 16px', display: 'flex', justifyContent: 'center' }}><HomeFooter by={settings.ai === 'local' ? 'builtin' : settings.provider} /></span>}
     </main>
   );
 }

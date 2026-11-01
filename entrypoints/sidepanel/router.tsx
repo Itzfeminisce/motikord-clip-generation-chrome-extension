@@ -19,14 +19,16 @@ import Setup from '../../screens/Setup';
 import StatesCreate from '../../screens/StatesCreate';
 import StatesLibrary from '../../screens/StatesLibrary';
 import StatesSetup from '../../screens/StatesSetup';
+import StatesVoice from '../../screens/StatesVoice';
 import Templates from '../../screens/Templates';
+import VoicePrompt from '../../screens/VoicePrompt';
 import YourMedia from '../../screens/YourMedia';
 
 /** Side panel screens, one per FRAMES.md frame, named as the frame (rows 1, 2, 4 and 6). */
 export const sidepanel = createRouter({
   Main, Setup, PenvConnect, PasteKey, PenvConnected,
-  Home, ClipType, Templates, YourMedia, Making, MakingFailed, Grab,
-  BrandKit, Library, LibraryEmpty, Settings, SettingsModel, Privacy, Recovered, StatesSetup, StatesCreate, StatesLibrary,
+  Home, VoicePrompt, ClipType, Templates, YourMedia, Making, MakingFailed, Grab,
+  BrandKit, Library, LibraryEmpty, Settings, SettingsModel, Privacy, Recovered, StatesSetup, StatesCreate, StatesLibrary, StatesVoice,
 });
 export type SidepanelScreen = (typeof sidepanel.names)[number];
 export const { RouterProvider, useRouter, Outlet } = sidepanel;
