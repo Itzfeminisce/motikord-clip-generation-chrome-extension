@@ -5,6 +5,9 @@ import { HOSTS, requestHost, type HostAccess } from '../../lib/hostAccess';
 import { getSettings, onSettingsChanged } from '../../lib/settings';
 import { openSidePanelOn } from '../../lib/sidepanelGo';
 import type { AiMode, Provider } from '../../lib/types';
+import { insertWords } from '../../lib/voice/listen';
+import { useVoice } from '../../lib/voice/useVoice';
+import { EditorListening, MIC_PATHS, VoiceStateCard } from '../StatesVoice';
 import Editor, { useEditor } from './Editor';
 import { ChangeTooLong, KeyNeeded, ProviderAccess, ProviderBusy, ProviderBusyRetried, ProviderDown, Offline, PromptFailed, PromptWorking } from './StatesPrompt';
 
@@ -32,6 +35,21 @@ export function PromptBox() {
   const retried = useRef(false);
   const recipe = useRef(state.clip.recipe);
   recipe.current = state.clip.recipe;
+  const input = useRef<HTMLInputElement>(null);
+  // Heard words land at the cursor and wait for send; voice never sends by itself.
+  const cursor = useRef(0);
+  const voice = useVoice((words) => {
+    setText((now) => {
+      const at = insertWords(now, cursor.current, words);
+      requestAnimationFrame(() => { const el = input.current; if (el) { el.focus(); el.setSelectionRange(at.cursor, at.cursor); } });
+      return at.text;
+    });
+  });
+  const speak = () => {
+    cursor.current = input.current?.selectionStart ?? text.length;
+    setUi({ kind: 'idle' });
+    voice.start();
+  };
 
   useEffect(() => {
     void getSettings().then((s) => { ai.current = s.ai; setProvider(s.provider); }).catch(() => undefined);
@@ -112,6 +130,10 @@ export function PromptBox() {
   };
 
   const card = (() => {
+    if (voice.ui.kind === 'card') {
+      return <VoiceStateCard card={voice.ui.card} provider={voice.provider}
+        actions={{ onAllow: voice.allowMic, onTypeInstead: voice.dismiss, onOpenSettings: voice.openChromeSettings, onTryAgain: voice.tryAgain }} />;
+    }
     switch (ui.kind) {
       case 'failed': return <PromptFailed onRetry={() => send(last.current)} />;
       case 'too-long': return <ChangeTooLong totalMs={ui.totalMs} />;
@@ -130,25 +152,31 @@ export function PromptBox() {
       {card && <div style={{ position: 'absolute', left: 0, right: 0, bottom: 'calc(100% + 8px)', zIndex: 7 }}>{card}</div>}
       {ui.kind === 'working'
         ? <PromptWorking onStop={() => stop.current?.abort()} />
-        : (
+        : voice.ui.kind === 'listening' || voice.ui.kind === 'transcribing'
+          ? <EditorListening settled={voice.ui.kind === 'listening' ? voice.ui.settled : ''} interim={voice.ui.kind === 'listening' ? voice.ui.interim : ''} onDone={voice.done} />
+          : (
           <form onSubmit={(e) => { e.preventDefault(); send(text); }}
             style={{ height: 46, boxSizing: 'border-box', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--line-strong)', display: 'flex', alignItems: 'center', gap: 10, padding: '0 6px 0 14px', boxShadow: '0 2px 8px rgba(16,16,20,0.06)' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" /></svg>
-            <input aria-label="Tell Motikord what to change" placeholder="Tell Motikord what to change" value={text}
+            <input ref={input} aria-label="Tell Motikord what to change" placeholder="Tell Motikord what to change" value={text}
               onChange={(e) => { setText(e.target.value); if (ui.kind !== 'idle' && ui.kind !== 'offline') setUi({ kind: 'idle' }); }}
               style={{ flexGrow: 1, minWidth: 0, border: 0, outline: 'none', font: '14px/1 var(--font)', color: 'var(--ink)', background: 'transparent' }} />
+            <button type="button" aria-label="Speak" title="Speak your change" onClick={speak}
+              style={{ width: 34, height: 34, border: 0, borderRadius: 10, background: 'transparent', color: 'var(--muted)', display: 'grid', placeItems: 'center', cursor: 'pointer', flexShrink: 0 }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{MIC_PATHS}</svg>
+            </button>
             <button type="submit" aria-label="Send" disabled={!text.trim()}
               style={{ width: 34, height: 34, border: 0, borderRadius: 10, background: 'var(--accent)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer', opacity: text.trim() ? 1 : 0.6 }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" /></svg>
             </button>
           </form>
         )}
-      <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+      {voice.ui.kind !== 'listening' && voice.ui.kind !== 'transcribing' && <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
         {CHIPS.map((c) => (
           <button key={c} type="button" disabled={ui.kind === 'working'} onClick={() => { setText(c); send(c); }}
             style={{ height: 26, padding: '0 10px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line-strong)', color: 'var(--ink)', font: '12px/1 var(--font)', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>{c}</button>
         ))}
-      </div>
+      </div>}
     </div>
   );
 }

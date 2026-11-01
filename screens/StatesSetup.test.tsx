@@ -27,7 +27,7 @@ describe('StatesSetup', () => {
     expect(r(<KeyRejected provider="openai" />)).toContain('Get an OpenAI key');
     expect(r(<KeyWrongProvider provider="anthropic" detected="groq" />)).toContain('its keys start with sk-ant-.');
   });
-  it('has the six privacy rows', () => {
-    expect(PRIVACY_ROWS).toHaveLength(6);
+  it('has the seven privacy rows', () => {
+    expect(PRIVACY_ROWS).toHaveLength(7);
   });
 });

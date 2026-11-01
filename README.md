@@ -42,6 +42,7 @@ There is no account, no analytics and no telemetry.
 | Clips, recipes, brand kit, library | Your computer (IndexedDB and OPFS) | Nothing. Leaves only inside a file you export. |
 | Your own media and fonts | Your computer | Nothing. Never sent to AI or any library. |
 | Prompts and recipe text | Your computer | Sent only to the one AI provider you chose (Groq by default; or OpenAI, Anthropic or OpenRouter) when you prompt: your prompt and the clip's text, never your media. Not sent if Chrome's built-in AI is used. |
+| Your voice | Nowhere. No recording is kept | Heard only while the mic is lit, after you press Speak. Turned into text on this computer by Chrome's on-device speech recognition when Chrome can (never Chrome's cloud speech service); otherwise sent to Groq or OpenAI, with your key, only to become text, and only when that is the provider you chose. The text goes into the prompt box and is sent only when you press Make clip or send. |
 | Page grabs | Your computer | The text of a grab goes to the AI only as part of a prompt you send. The page is read only after you press "Grab from this page" and allow access. |
 | Media and music searches | Your computer | Your search words go to the library you search (Openverse or Pexels). Picked files are downloaded once from their source and kept here. |
 | Keys | `chrome.storage.session`, cleared when Chrome closes | Groq, OpenAI, Anthropic, OpenRouter and Pexels keys, fetched from Penv Cloud after "Connect Penv Cloud", or pasted. Each key goes only to its own service. Never printed, logged or committed. |
