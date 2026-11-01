@@ -228,7 +228,7 @@ const PARSERS: Record<CustomFormat, (body: unknown, from: From) => MediaResult[]
 
 /** {format} in "Read as {format}." */
 export const FORMAT_NAME: Record<CustomFormat, string> = {
-  openverse: 'Openverse', wordpress: 'a WordPress media library', mediawiki: 'Wikimedia', pexels: 'a Pexels style API', pixabay: 'a Pixabay style API', generic: 'a list of items',
+  openverse: 'the Openverse API', wordpress: 'a WordPress media library', mediawiki: 'a Wikimedia or MediaWiki site', pexels: 'a Pexels-style API', pixabay: 'a Pixabay-style API', generic: 'a list of media links',
 };
 
 /** True when the reply is a known list shape that is simply empty. */

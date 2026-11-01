@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { searchingLine } from '../lib/media/sources/search';
 import { actionStyle } from './StatesSetup';
 
 // StatesMedia frame: every state of Free media. Each card's label in the frame is `<state-id> · <screen it appears on>`.
@@ -22,10 +23,10 @@ function Row({ tone = 'plain', glyph, title, children, actions, role }: { tone?:
 
 const btn = (text: string, onClick?: () => void, style: CSSProperties = actionStyle) => <button key={text} type="button" onClick={onClick} style={style}>{text}</button>;
 
-export function MediaSearching() {
+export function MediaSearching({ names = ['Openverse', 'Pexels'] }: { names?: string[] }) {
   return (
     <div role="status" style={{ padding: 12, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <span style={{ fontSize: 12, color: 'var(--muted)' }}>Searching Openverse and Pexels…</span>
+      <span style={{ fontSize: 12, color: 'var(--muted)' }}>{searchingLine(names)}</span>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
         {[0, 1, 2].map((i) => <span key={i} style={{ height: 64, borderRadius: 8, background: 'var(--stage)' }} />)}
       </div>

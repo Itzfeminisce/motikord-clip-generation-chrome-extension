@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from '../entrypoints/sidepanel/router';
 import { requestHost } from '../lib/hostAccess';
 import { BUILTINS, isOn, type BuiltinSource } from '../lib/media/sources/builtins';
@@ -6,10 +6,10 @@ import { linkHostPath } from '../lib/media/sources/custom';
 import { sourceRuns } from '../lib/media/sources/search';
 import { getSourceStatus, setSourceStatus, type SourceStatus } from '../lib/media/sources/status';
 import { KEY_SHAPES } from '../lib/media/sources/summary';
-import { getKey, getSettings, onSettingsChanged, setKey, updateSettings } from '../lib/settings';
+import { clearKey, getKey, getSettings, onSettingsChanged, setKey, updateSettings } from '../lib/settings';
 import type { CustomSource, Settings } from '../lib/types';
 import { BackButton } from './Setup';
-import { RowStatus, SourceAddKey, SourceDown, SourceKeyRejected } from './StatesSources';
+import { RowStatus, SourceAddKey, SourceDown, SourceKeyRejected, SourceRemoved } from './StatesSources';
 
 const card: CSSProperties = { margin: '0 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column' };
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderTop: '1px solid #EFEFF1', color: 'var(--ink)', textDecoration: 'none' };
@@ -18,6 +18,8 @@ const mono = (own?: boolean): CSSProperties => ({ width: 30, height: 30, borderR
 const tagStyle: CSSProperties = { fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 999, background: '#F1F1F3', color: 'var(--muted)' };
 const warnTag: CSSProperties = { ...tagStyle, background: 'var(--warning-bg)', color: 'var(--warning-ink)' };
 const btn2: CSSProperties = { height: 32, padding: '0 12px', border: '1px solid var(--line-strong)', borderRadius: 9, background: 'var(--surface)', font: '600 12px var(--font)', color: 'var(--ink)', cursor: 'pointer', flexShrink: 0 };
+const bin = <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3" /></svg>;
+const UNDO_MS = 10_000;
 const KIND_TAG = { image: 'Photos', video: 'Videos', audio: 'Music' } as const;
 
 function Section({ title, small }: { title: string; small?: string }) {
@@ -57,18 +59,48 @@ export default function MediaSources() {
   const [status, setStatus] = useState<Record<string, SourceStatus>>({});
   const [adding, setAdding] = useState<BuiltinSource>();
   const [retrying, setRetrying] = useState<string>();
+  const [removed, setRemoved] = useState<{ source: CustomSource; index: number; key?: string }>();
+  const undoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     void getSettings().then(setS).catch((error: unknown) => console.error('Motikord: could not read settings', error));
     void Promise.all(BUILTINS.flatMap((b) => (b.key ? [getKey(b.key.name).then((k) => [b.key!.name, k] as const)] : []))).then((pairs) => setKeys(Object.fromEntries(pairs))).catch(() => undefined);
     void getSourceStatus().then(setStatus);
-    return onSettingsChanged(setS);
+    const off = onSettingsChanged(setS);
+    return () => { off(); clearTimeout(undoTimer.current); };
   }, []);
   if (!s) return <main data-frame="MediaSources" />;
 
   const media = s.media;
   const setOn = (b: BuiltinSource, v: boolean) => void updateSettings({ media: { on: { [b.id]: v } } });
   const setCustom = (c: CustomSource, v: boolean) => void updateSettings({ media: { custom: media.custom.map((x) => (x.id === c.id ? { ...x, on: v } : x)) } });
+
+  /** Takes effect at once, no confirm; the saved key goes too. Undo puts both back for 10 seconds. */
+  function remove(c: CustomSource) {
+    const index = media.custom.findIndex((x) => x.id === c.id);
+    void (async () => {
+      const key = await getKey(`custom:${c.id}`);
+      await updateSettings({ media: { custom: media.custom.filter((x) => x.id !== c.id) } });
+      await clearKey(`custom:${c.id}`);
+      clearTimeout(undoTimer.current);
+      setRemoved({ source: c, index, ...(key ? { key } : {}) });
+      undoTimer.current = setTimeout(() => setRemoved(undefined), UNDO_MS);
+    })().catch((error: unknown) => console.error('Motikord: could not remove the source', error instanceof Error ? error.name : undefined));
+  }
+
+  function undo() {
+    if (!removed) return;
+    const { source, index, key } = removed;
+    clearTimeout(undoTimer.current);
+    setRemoved(undefined);
+    void (async () => {
+      if (key) await setKey(`custom:${source.id}`, key);
+      const current = await getSettings();
+      const list = current.media.custom.filter((x) => x.id !== source.id);
+      list.splice(Math.min(index, list.length), 0, source);
+      await updateSettings({ media: { custom: list } });
+    })().catch((error: unknown) => console.error('Motikord: could not restore the source', error instanceof Error ? error.name : undefined));
+  }
 
   function saveKey(b: BuiltinSource, value: string) {
     // Asked inside the click, before anything is awaited, so Chrome still sees the gesture.
@@ -114,6 +146,8 @@ export default function MediaSources() {
       </div>
       <p style={{ margin: '4px 24px 0', fontSize: 13, lineHeight: 1.5, color: 'var(--muted)' }}>Where Free media looks for photos, videos and music. Searches go to every source that’s on. If one doesn’t answer, the others still show.</p>
 
+      {removed && <div style={{ margin: '14px 16px 0' }}><SourceRemoved source={removed.source.name} onUndo={undo} /></div>}
+
       {down.length > 0 && (
         <div style={{ margin: '14px 16px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {down.map(([id, v]) => <SourceDown key={id} source={nameOf(id)} status={v.status} onRetry={retrying ? undefined : () => retry(id)} />)}
@@ -154,13 +188,16 @@ export default function MediaSources() {
       <div style={card}>
         {media.custom.map((c, i) => (
           <SourceRow key={c.id} i={i} own m={monogram(c.name)} name={c.name} line={linkHostPath(c.url)} lineMono tags={c.kinds.map((k) => KIND_TAG[k])} warn="Check licences"
-            end={status[c.id]?.state === 'down' ? <RowStatus state="down" /> : <Toggle on={c.on} label={c.name} onChange={(v) => setCustom(c, v)} />} />
+            end={<>
+              <button type="button" aria-label={`Remove ${c.name}`} onClick={() => remove(c)} style={{ ...btn2, width: 32, padding: 0, display: 'grid', placeItems: 'center' }}>{bin}</button>
+              {status[c.id]?.state === 'down' ? <RowStatus state="down" /> : <Toggle on={c.on} label={c.name} onChange={(v) => setCustom(c, v)} />}
+            </>} />
         ))}
         <a href="#add-source" onClick={(e) => { e.preventDefault(); navigate('AddSource'); }} style={{ ...row, ...first(media.custom.length), color: 'var(--accent)', fontSize: 13, fontWeight: 600, gap: 8 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add a source
         </a>
       </div>
-      <span style={{ margin: '8px 24px 0', fontSize: 12, lineHeight: 1.45, color: 'var(--faint)' }}>Paste any search link, with a key if it needs one. Motikord tests it before adding it.</span>
+      <span style={{ margin: '8px 24px 0', fontSize: 12, lineHeight: 1.45, color: 'var(--faint)' }}>Paste any search link, with a key if it needs one. Motikord tests it before adding it. Built-in sources can be turned off but not removed.</span>
 
       <Section title="Licences" />
       <div style={card}>
