@@ -27,10 +27,13 @@ export default defineConfig({
     icons: ICONS,
     // activeTab + scripting run the page picker (T6) only in the tab you grab from.
     permissions: ['sidePanel', 'storage', 'unlimitedStorage', 'activeTab', 'scripting', 'identity'],
-    // Asked for only when first used: Penv Cloud, Groq, the media libraries and the hosts their files come from.
+    // Asked for only when first used: Penv Cloud, the AI providers, the media libraries and the hosts their files come from.
     optional_host_permissions: [
       'https://penv.cloud/*',
       'https://api.groq.com/*',
+      'https://api.openai.com/*',
+      'https://api.anthropic.com/*',
+      'https://openrouter.ai/*',
       'https://api.openverse.org/*',
       'https://api.pexels.com/*',
       'https://images.pexels.com/*',

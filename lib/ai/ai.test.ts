@@ -169,7 +169,7 @@ describe('writeRecipe', () => {
     const fetch = vi.fn(async () => { throw new TypeError('Failed to fetch'); });
     await expect(writeRecipe(input, { ai: 'cloud', key: KEY, fetch })).rejects.toMatchObject({ state: 'offline' });
     expect(fetch).toHaveBeenCalledTimes(1);
-    await expect(writeRecipe(input, { ai: 'cloud', key: KEY, fetch: async () => new Response('', { status: 500 }) })).rejects.toMatchObject({ state: 'groq-down' });
+    await expect(writeRecipe(input, { ai: 'cloud', key: KEY, fetch: async () => new Response('', { status: 500 }) })).rejects.toMatchObject({ state: 'provider-down' });
   });
 });
 
@@ -216,8 +216,8 @@ describe('editRecipe', () => {
     expect(g.bodies).toHaveLength(1);
   });
 
-  it('maps a busy Groq to groq-busy', async () => {
+  it('maps a busy Groq to provider-busy', async () => {
     const recipe = await made();
-    await expect(editRecipe(recipe, 'x', { ai: 'cloud', key: KEY, fetch: async () => new Response('', { status: 429 }) })).rejects.toMatchObject({ state: 'groq-busy' });
+    await expect(editRecipe(recipe, 'x', { ai: 'cloud', key: KEY, fetch: async () => new Response('', { status: 429 }) })).rejects.toMatchObject({ state: 'provider-busy' });
   });
 });

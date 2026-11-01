@@ -8,7 +8,7 @@ import { editSystem, retryMessage } from './prompts';
 import { applyCheckerFixes, normaliseColour, normaliseLayer, normaliseScene, parseJsonReply, type AiOptions } from './writeRecipe';
 
 export interface EditResult {
-  recipe: Recipe; by: 'groq' | 'builtin';
+  recipe: Recipe; by: import('../types').Provider | 'builtin';
   ops: PatchOp[];        // the model's ops, then any checker fixes; what the Changes tab stores
   inverse: PatchOp[];    // undoes `ops` on the recipe that was passed in
   issues: Issue[];       // what the checker could not fix

@@ -25,11 +25,11 @@ To update a zip build, unzip it over the same folder and press Reload on the ext
 
 ## First run
 
-Setup asks who writes your clips: on this computer (Chrome's built-in AI, where available) or Groq, which is faster. For Groq, press "Connect Penv Cloud", or choose "Paste a key". A Pexels key is optional and adds Pexels photos and videos to media search.
+Setup asks who writes your clips: on this computer (Chrome's built-in AI, where available) or faster in the cloud, with Groq (the default, with a free tier), OpenAI, Anthropic or OpenRouter. For a cloud provider, press "Connect Penv Cloud", or choose "Paste a key" and paste that provider's key. A Pexels key is optional and adds Pexels photos and videos to media search.
 
 ## AI options
 
-- Groq, with a key from Penv Cloud or one you paste.
+- Groq, OpenAI, Anthropic or OpenRouter, with a key from Penv Cloud (`GROQ_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`) or one you paste. Settings lists the provider's current models; pick one, or keep the recommended model.
 - Chrome's built-in AI, when your computer has it. Nothing is sent anywhere.
 
 ## Privacy
@@ -41,10 +41,10 @@ There is no account, no analytics and no telemetry.
 | --- | --- | --- |
 | Clips, recipes, brand kit, library | Your computer (IndexedDB and OPFS) | Nothing. Leaves only inside a file you export. |
 | Your own media and fonts | Your computer | Nothing. Never sent to AI or any library. |
-| Prompts and recipe text | Your computer | Sent to the AI you chose (Groq by default) when you prompt. Not sent if Chrome's built-in AI is used. |
+| Prompts and recipe text | Your computer | Sent only to the one AI provider you chose (Groq by default; or OpenAI, Anthropic or OpenRouter) when you prompt: your prompt and the clip's text, never your media. Not sent if Chrome's built-in AI is used. |
 | Page grabs | Your computer | The text of a grab goes to the AI only as part of a prompt you send. The page is read only after you press "Grab from this page" and allow access. |
 | Media and music searches | Your computer | Your search words go to the library you search (Openverse or Pexels). Picked files are downloaded once from their source and kept here. |
-| Keys | `chrome.storage.session`, cleared when Chrome closes | Fetched from Penv Cloud after "Connect Penv Cloud", or pasted. Never printed, logged or committed. |
+| Keys | `chrome.storage.session`, cleared when Chrome closes | Groq, OpenAI, Anthropic, OpenRouter and Pexels keys, fetched from Penv Cloud after "Connect Penv Cloud", or pasted. Each key goes only to its own service. Never printed, logged or committed. |
 
 The full policy, with every permission and host, is in [docs/privacy.md](docs/privacy.md).
 

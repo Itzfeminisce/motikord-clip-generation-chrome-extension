@@ -16,7 +16,7 @@ export interface WriteInput extends RecipePromptInput {
   id?: string;               // new clip id; random when absent
 }
 export interface WriteResult {
-  recipe: Recipe; by: 'groq' | 'builtin';
+  recipe: Recipe; by: import('../types').Provider | 'builtin';
   notices: AiStateId[];      // 'too-long' when the idea ran past 60 s and was cut to fit
   checkerClean: boolean;     // the reply passed the checker before any fixes
   issues: Issue[];           // what the checker could not fix

@@ -1,7 +1,7 @@
 import { LLMError, type LLMErrorCode } from '../llm';
 
 /** State ids from FRAMES.md that AI failures land on; screens show that frame's copy. */
-export type AiStateId = 'making-failed' | 'too-long' | 'groq-busy' | 'groq-down' | 'key-needed' | 'offline' | 'prompt-failed' | 'change-too-long';
+export type AiStateId = 'making-failed' | 'too-long' | 'provider-busy' | 'provider-down' | 'key-needed' | 'offline' | 'prompt-failed' | 'change-too-long';
 export type AiTask = 'make' | 'edit';
 export type AiErrorCode = LLMErrorCode | 'invalid-reply' | 'change-too-long';
 
@@ -9,10 +9,10 @@ export type AiErrorCode = LLMErrorCode | 'invalid-reply' | 'change-too-long';
 export function stateFor(code: AiErrorCode, task: AiTask): AiStateId | undefined {
   switch (code) {
     case 'offline': return 'offline';
-    case 'rate-limited': return 'groq-busy';
-    // No key means a pasted key was lost when Chrome closed ("Paste a key"); a refused key and a Groq outage go to Settings.
+    case 'rate-limited': return 'provider-busy';
+    // No key means a pasted key was lost when Chrome closed ("Paste a key"); a refused key and a provider outage go to Settings.
     case 'no-key': return 'key-needed';
-    case 'auth': case 'server': return 'groq-down';
+    case 'auth': case 'server': return 'provider-down';
     case 'change-too-long': return 'change-too-long';
     case 'cancelled': return undefined;
     case 'bad-reply': case 'invalid-reply': case 'local-unavailable':

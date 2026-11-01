@@ -1,13 +1,14 @@
 // CONTRACT.md as code (apps/motikord/v1/CONTRACT.md). Later tasks import these and never redefine them.
 export type Aspect = '9:16' | '1:1' | '16:9';
 export type ClipType = 'promo' | 'quote' | 'chart' | 'explainer' | 'logo' | 'captions' | 'social';
-export type AiMode = 'cloud' | 'local';                     // "Faster with Groq" / "On this computer"
+export type AiMode = 'cloud' | 'local';                     // "Faster in the cloud" / "On this computer"
+export type Provider = 'groq' | 'openai' | 'anthropic' | 'openrouter';   // who runs the cloud AI
 export type Feel = 'smooth' | 'snappy' | 'bouncy' | 'steady';
 export type PresetSlot = 'in' | 'during' | 'out';           // "Comes in" / "While on screen" / "Goes out"
 export type FileKind = 'mp4' | 'webm' | 'gif' | 'webm-alpha';
 export type Quality = '720p' | '1080p';
 export type LicenceId = 'cc0' | 'pdm' | 'cc-by' | 'cc-by-sa' | 'cc-by-nc' | 'pexels' | 'page' | 'own';
-export type Author = 'groq' | 'builtin' | 'hand' | 'template';
+export type Author = Provider | 'builtin' | 'hand' | 'template';
 
 export interface Credit {                                    // every asset someone else made
   title: string; author: string; source: 'openverse' | 'pexels' | 'bundled' | 'page';
@@ -73,6 +74,8 @@ export interface Issue {                                     // quality checker
 
 export interface Settings {
   ai: AiMode; keySource: 'penv-app' | 'paste' | null;
+  provider: Provider;                                        // used when ai is 'cloud'
+  models: Partial<Record<Provider, string>>;                 // the model the person picked; absent = recommended
   penvApp?: { connectionId: string; org: string; project: string; env: string; keys: string[] };
   defaultType?: ClipType;                                   // "Always use this type": skips detection
   defaultAspect: Aspect; defaultExport: { kind: FileKind; quality: Quality };
