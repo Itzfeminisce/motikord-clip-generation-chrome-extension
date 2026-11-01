@@ -88,7 +88,7 @@ export function CustomOk({ n, kind, format, licenceKnown = true, thumbs = [] }: 
         </div>
       )}
       <span style={{ fontSize: 12, lineHeight: 1.45, color: 'var(--muted)' }}>
-        {licenceKnown ? `Read as ${format}. You can add it now.` : `Read as ${format}. Licences aren’t listed, so each item says “Check you may use it.”`}
+        {licenceKnown ? `Read as ${format}. You can add it now.` : `Read as ${format}. Licences aren’t listed, so each item is marked “Licence unknown”.`}
       </span>
     </div>
   );

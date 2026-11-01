@@ -75,3 +75,10 @@ export async function searchAll(runs: SourceRun[], fetchFn: FetchLike, q: string
 
 /** Every origin the runs reach, for one host request inside the search click. */
 export const runOrigins = (runs: SourceRun[], kind: MediaKind): string[] => [...new Set(runs.filter((r) => !r.needsKey && r.kinds.includes(kind)).flatMap((r) => r.origins))];
+
+/** Free media progress line: "Searching A…", "Searching A and B…", "Searching A, B and 3 more…". Names in Media sources order. */
+export function searchingLine(names: string[]): string {
+  if (names.length <= 1) return `Searching ${names[0] ?? ''}…`;
+  if (names.length === 2) return `Searching ${names[0]} and ${names[1]}…`;
+  return `Searching ${names[0]}, ${names[1]} and ${names.length - 2} more…`;
+}

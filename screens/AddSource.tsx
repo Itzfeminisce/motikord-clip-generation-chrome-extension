@@ -126,7 +126,13 @@ export default function AddSource() {
             {KEY_PLACEMENTS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
           </select>
         </label>
-        {keyAs === 'header' && <input value={keyHeader} onChange={(e) => edit(setKeyHeader)(e.target.value)} aria-label="Another header…" spellCheck={false} autoComplete="off" style={inputStyle} />}
+        {keyAs === 'header' && (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={lbl}>Header name</span>
+            <input value={keyHeader} onChange={(e) => edit(setKeyHeader)(e.target.value)} aria-label="Header name" placeholder="X-API-Key" spellCheck={false} autoComplete="off" style={inputStyle} />
+            <span style={hint}>The name the source gives for its key header. The key is sent as its value.</span>
+          </label>
+        )}
         <button type="button" onClick={() => test()} disabled={state.kind === 'testing'}
           style={{ height: 38, padding: '0 12px', border: '1px solid var(--line-strong)', borderRadius: 9, background: 'var(--surface)', font: '600 12px var(--font)', color: 'var(--ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4.2-4.2" /></svg>

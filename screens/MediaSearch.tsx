@@ -290,7 +290,7 @@ export default function MediaSearch() {
         <div style={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
           {!freeOnly && <AllLicencesOn />}
           {needKey.filter((r) => source !== 'all' || status !== 'idle').map((r) => (r.id === 'pexels' ? <PexelsNeedsKey key={r.id} onAddKey={() => addKey(r.id)} /> : <SourceNeedsKey key={r.id} source={r.name} onAddKey={() => addKey(r.id)} />))}
-          {status === 'searching' && <MediaSearching />}
+          {status === 'searching' && <MediaSearching names={wanted.filter((r) => !r.needsKey).map((r) => r.name)} />}
           {status === 'offline' && <MediaOffline onUseMedia={() => navigate('YourMedia', route.params)} />}
           {status === 'done' && problems.access.map((r) => (r.id === 'openverse' ? <LibraryDenied key={r.id} onAllow={() => allow(r)} /> : <SourceAccess key={r.id} host={hostOf(r.origins)} onAllow={() => allow(r)} />))}
           {status === 'done' && problems.down.map((p) => <SourceDown key={p.id} source={p.name} status={p.status} onRetry={retry} />)}
