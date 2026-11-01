@@ -112,6 +112,13 @@ export function GrabNotAllowed() {
     </Notice>
   );
 }
+export function GrabAccessNotGiven({ onTryAgain }: { onTryAgain?: () => void }) {
+  return (
+    <Notice role="status" glyph="info" title="Page access not given" actions={<button type="button" onClick={onTryAgain} style={actionStyle}>Try again</button>}>
+      Motikord needs permission to read the page to grab from it. Nothing is read until you pick.
+    </Notice>
+  );
+}
 export function GrabPictureUnreadable({ onPickAnother }: { onPickAnother?: () => void }) {
   return (
     <Notice tone="warning" role="status" glyph="warn" title="Couldn’t read that picture" actions={<button type="button" onClick={onPickAnother} style={actionStyle}>Pick another</button>}>
@@ -152,6 +159,7 @@ const SHEET: [string, ReactNode][] = [
   ['too-long · Making your clip', <TooLong />],
   ['groq-access · first “Make clip” (Chrome asks once)', <GroqAccess />],
   ['grab-not-allowed · Grab from the page', <GrabNotAllowed />],
+  ['grab-access-not-given · Grab from the page', <GrabAccessNotGiven />],
   ['grab-nothing-picked · Grab from the page', <GrabNothingPicked />],
   ['grab-picture-unreadable · Grab from the page', <GrabPictureUnreadable />],
   ['media-unsupported · Your media', <MediaUnsupported name="brochure.pdf" />],
